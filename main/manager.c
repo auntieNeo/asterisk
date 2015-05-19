@@ -5354,7 +5354,8 @@ static int action_originate(struct mansession *s, const struct message *m)
 	if (exten && context && pi) {
 		if (! ast_exists_extension(NULL, context, exten, pi, l)) {
 			/* The extension does not exist. */
-			astman_send_error(s, m, "Extension does not exist.");
+			astman_send_error_va(s, m, "Extension '%s' does not exist in context '%s'.",
+          exten, context);
 			res = 0;
 			goto fast_orig_cleanup;
 		}

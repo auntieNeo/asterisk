@@ -40,6 +40,9 @@
 #define DEFAULT_USER_PROFILE "default_user"
 #define DEFAULT_BRIDGE_PROFILE "default_bridge"
 #define DEFAULT_MENU_PROFILE "default_menu"
+#define DEFAULT_TRUNK_BRIDGE_PROFILE "default_trunk_bridge"
+#define DEFAULT_TRUNK_USER_PROFILE "default_trunk_user"
+#define DEFAULT_STATION_USER_PROFILE "default_station_user"
 
 #define DEFAULT_TALKING_THRESHOLD 160
 #define DEFAULT_SILENCE_THRESHOLD 2500
@@ -626,4 +629,24 @@ void conf_announce_channel_depart(struct ast_channel *chan);
  * \retval -1 on error.
  */
 int conf_announce_channel_push(struct ast_channel *ast);
+
+/*!
+ * \breif Initialize and join a conference on a channel.
+ * \since FIXME
+ *
+ * \param channel The channel that will join the conference.
+ * \param user_profile_name Name of the user profile for this channel
+ *  in the conference (defined in confbridge.conf)
+ * \param bridge_profile_name Name of the bridge profile for this
+ *  conference (defined in confbridge.conf)
+ * \param menu_profile_name Name of the menu profile for this
+ *  conference (defined in confbridge.conf)
+ *
+ *  FIXME: Document null/empty values for menu_profile_name
+ *
+ */
+int confbridge_init_and_join(struct ast_channel *chan,
+		const char *conf_name, const char *user_profile_name,
+		const char *bridge_profile_name, const char *menu_profile_name);
+
 #endif

@@ -36,6 +36,9 @@ struct ast_dial_channel;
 /*! \brief Forward declaration for format capabilities, used in prerun */
 struct ast_format_cap;
 
+/* Forward declaration */
+struct ast_assigned_ids;
+
 typedef void (*ast_dial_state_callback)(struct ast_dial *);
 
 /*! \brief List of options that are applicable either globally or per dialed channel */

@@ -2171,6 +2171,7 @@ static void conf_user_profile_copy(struct user_profile *dst, struct user_profile
 	*dst = *src;
 }
 
+/* FIXME: rewrite conf_find_user_profile not to use a default (the default would likely be bad for BLA) */
 const struct user_profile *conf_find_user_profile(struct ast_channel *chan, const char *user_profile_name, struct user_profile *result)
 {
 	struct user_profile *tmp2;

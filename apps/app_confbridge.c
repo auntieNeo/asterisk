@@ -64,6 +64,7 @@ ASTERISK_REGISTER_FILE()
 #include "asterisk/audiohook.h"
 #include "asterisk/astobj2.h"
 #include "confbridge/include/confbridge.h"
+#include "confbridge/include/conf_bla.h"
 #include "asterisk/paths.h"
 #include "asterisk/manager.h"
 #include "asterisk/test.h"
@@ -323,6 +324,8 @@ ASTERISK_REGISTER_FILE()
  */
 
 static const char app[] = "ConfBridge";
+static const char bla_station_app[] = "BLAStation";
+static const char bla_trunk_app[] = "BLATrunk";
 
 /*! Number of buckets our conference bridges container can have */
 #define CONFERENCE_BRIDGE_BUCKETS 53
@@ -1259,7 +1262,7 @@ static struct confbridge_conference *join_conference_bridge(const char *conferen
 
 		/* Setup conference bridge parameters */
 		ast_copy_string(conference->name, conference_name, sizeof(conference->name));
-		conf_bridge_profile_copy(&conference->b_profile, &user->b_profile);
+		conf_bridge_profile_copy(&conference->b_profile, &user->b_profile);  /* FIXME: b_profile should not depend on the first user to join... this problem is inherent to the app interface */
 
 		/* Create an actual bridge that will do the audio mixing */
 		conference->bridge = ast_bridge_base_new(AST_BRIDGE_CAPABILITY_MULTIMIX,
@@ -1589,15 +1592,12 @@ static int conf_rec_name(struct confbridge_user *user, const char *conf_name)
 	return 0;
 }
 
-/*! \brief The ConfBridge application */
-static int confbridge_exec(struct ast_channel *chan, const char *data)
+int confbridge_init_and_join(struct ast_channel *chan,
+		const char *conf_name, const char *user_profile_name,
+		const char *bridge_profile_name, const char *menu_profile_name)
 {
-	int res = 0, volume_adjustments[2];
+	int res = 0, volume_adjustments[2];  /* FIXME Does the volume adjustment need to be initialized to a default here? */
 	int quiet = 0;
-	char *parse;
-	const char *b_profile_name = NULL;
-	const char *u_profile_name = NULL;
-	const char *menu_profile_name = NULL;
 	struct confbridge_conference *conference = NULL;
 	struct confbridge_user user = {
 		.chan = chan,
@@ -1605,104 +1605,66 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 		.tech_args.silence_threshold = DEFAULT_SILENCE_THRESHOLD,
 		.tech_args.drop_silence = 0,
 	};
-	AST_DECLARE_APP_ARGS(args,
-		AST_APP_ARG(conf_name);
-		AST_APP_ARG(b_profile_name);
-		AST_APP_ARG(u_profile_name);
-		AST_APP_ARG(menu_profile_name);
-	);
 
 	if (ast_channel_state(chan) != AST_STATE_UP) {
-		ast_answer(chan);
+		ast_answer(chan);  /* FIXME: Figure out if the order of this is important relative to what it used to be */
 	}
 
 	if (ast_bridge_features_init(&user.features)) {
 		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
 		res = -1;
-		goto confbridge_cleanup;
+		goto confbridge_init_and_join_cleanup;
 	}
 
-	/* We need to make a copy of the input string if we are going to modify it! */
-	parse = ast_strdupa(data);
-
-	AST_STANDARD_APP_ARGS(args, parse);
-
-	if (ast_strlen_zero(args.conf_name)) {
+	/* Read the bridge profile into the sure struct */
+	if (!conf_find_bridge_profile(chan, bridge_profile_name, &user.b_profile)) {
 		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
-		ast_log(LOG_WARNING, "%s requires an argument (conference name[,options])\n", app);
+		ast_log(LOG_WARNING, "Conference bridge profile '%s' does not exist\n",
+				bridge_profile_name);
 		res = -1;
-		goto confbridge_cleanup;
+		goto confbridge_init_and_join_cleanup;
 	}
 
-	if (strlen(args.conf_name) >= MAX_CONF_NAME) {
+	/* Read the user profile into the user struct */
+	if (!conf_find_user_profile(chan, user_profile_name, &user.u_profile)) {
 		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
-		ast_log(LOG_WARNING, "%s does not accept conference names longer than %d\n", app, MAX_CONF_NAME - 1);
+		ast_log(LOG_WARNING, "Conference user profile '%s' does not exist\n",
+				user_profile_name);
 		res = -1;
-		goto confbridge_cleanup;
-	}
-
-	/* bridge profile name */
-	if (args.argc > 1 && !ast_strlen_zero(args.b_profile_name)) {
-		b_profile_name = args.b_profile_name;
-	}
-	if (!conf_find_bridge_profile(chan, b_profile_name, &user.b_profile)) {
-		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
-		ast_log(LOG_WARNING, "Conference bridge profile %s does not exist\n", b_profile_name ?
-			b_profile_name : DEFAULT_BRIDGE_PROFILE);
-		res = -1;
-		goto confbridge_cleanup;
-	}
-
-	/* user profile name */
-	if (args.argc > 2 && !ast_strlen_zero(args.u_profile_name)) {
-		u_profile_name = args.u_profile_name;
-	}
-	if (!conf_find_user_profile(chan, u_profile_name, &user.u_profile)) {
-		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
-		ast_log(LOG_WARNING, "Conference user profile %s does not exist\n", u_profile_name ?
-			u_profile_name : DEFAULT_USER_PROFILE);
-		res = -1;
-		goto confbridge_cleanup;
+		goto confbridge_init_and_join_cleanup;
 	}
 
 	quiet = ast_test_flag(&user.u_profile, USER_OPT_QUIET);
 
-	/* ask for a PIN immediately after finding user profile.  This has to be
-	 * prompted for requardless of quiet setting. */
+	/* Ask for a PIN immediately after finding user profile.  This has to be
+	 * prompted for regardless of the quiet setting. */
 	if (!ast_strlen_zero(user.u_profile.pin)) {
 		if (conf_get_pin(chan, &user)) {
 			pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
 			res = -1; /* invalid PIN */
-			goto confbridge_cleanup;
+			goto confbridge_init_and_join_cleanup;
 		}
 	}
 
 	/* See if we need them to record a intro name */
 	if (!quiet &&
-		(ast_test_flag(&user.u_profile, USER_OPT_ANNOUNCE_JOIN_LEAVE) ||
-		(ast_test_flag(&user.u_profile, USER_OPT_ANNOUNCE_JOIN_LEAVE_REVIEW)))) {
-		conf_rec_name(&user, args.conf_name);
+			(ast_test_flag(&user.u_profile, USER_OPT_ANNOUNCE_JOIN_LEAVE) ||
+			 (ast_test_flag(&user.u_profile, USER_OPT_ANNOUNCE_JOIN_LEAVE_REVIEW)))) {
+		conf_rec_name(&user, conf_name);
 	}
 
-	/* menu name */
-	if (args.argc > 3 && !ast_strlen_zero(args.menu_profile_name)) {
-		menu_profile_name = args.menu_profile_name;
-	}
-
+	/* Read the menu profile into the user struct */
 	if (conf_set_menu_to_user(chan, &user, menu_profile_name)) {
 		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
-		ast_log(LOG_WARNING, "Conference menu profile %s does not exist\n", menu_profile_name ?
-			menu_profile_name : DEFAULT_MENU_PROFILE);
+		ast_log(LOG_WARNING, "Conference menu profile '%s' does not exist\n",
+				menu_profile_name);
 		res = -1;
-		goto confbridge_cleanup;
+		goto confbridge_init_and_join_cleanup;
 	}
 
 	/* Set if DTMF should pass through for this user or not */
-	if (ast_test_flag(&user.u_profile, USER_OPT_DTMF_PASS)) {
-		user.features.dtmf_passthrough = 1;
-	} else {
-		user.features.dtmf_passthrough = 0;
-	}
+	user.features.dtmf_passthrough =
+		ast_test_flag(&user.u_profile, USER_OPT_DTMF_PASS) ? 1 : 0;
 
 	/* Set dsp threshold values if present */
 	if (user.u_profile.talking_threshold) {
@@ -1712,13 +1674,13 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 		user.tech_args.silence_threshold = user.u_profile.silence_threshold;
 	}
 
-	/* Set a talker indicate call back if talking detection is requested */
+	/* Set a talker indicate call back if talking detection is requested */  /* FIXME: grammar */
 	if (ast_test_flag(&user.u_profile, USER_OPT_TALKER_DETECT)) {
 		if (ast_bridge_talk_detector_hook(&user.features, conf_handle_talker_cb,
 			&user, NULL, AST_BRIDGE_HOOK_REMOVE_ON_PULL)) {
 			pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
 			res = -1;
-			goto confbridge_cleanup;
+			goto confbridge_init_and_join_cleanup;
 		}
 	}
 
@@ -1729,20 +1691,23 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 	}
 
 	/* Look for a conference bridge matching the provided name */
-	if (!(conference = join_conference_bridge(args.conf_name, &user))) {
+	/* If the a conference of that name does not exist, it is created */
+	if (!(conference = join_conference_bridge(conf_name, &user))) {
 		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
 		res = -1;
-		goto confbridge_cleanup;
+		goto confbridge_init_and_join_cleanup;
 	}
 
 	/* Keep a copy of volume adjustments so we can restore them later if need be */
 	volume_adjustments[0] = ast_audiohook_volume_get(chan, AST_AUDIOHOOK_DIRECTION_READ);
 	volume_adjustments[1] = ast_audiohook_volume_get(chan, AST_AUDIOHOOK_DIRECTION_WRITE);
 
+	/* FIXME: Document what this does */
 	if (ast_test_flag(&user.u_profile, USER_OPT_DROP_SILENCE)) {
 		user.tech_args.drop_silence = 1;
 	}
 
+	/* FIXME: Document what this does */
 	if (ast_test_flag(&user.u_profile, USER_OPT_JITTERBUFFER)) {
 		char *func_jb;
 		if ((func_jb = ast_module_helper("", "func_jitterbuffer", 0, 0, 0, 0))) {
@@ -1760,7 +1725,8 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 		}
 	}
 
-	/* if this user has a intro, play it before entering */
+	/* If this user has a intro, play it before entering */
+	/* FIXME: What about checking quiet? */
 	if (!ast_strlen_zero(user.name_rec_location)) {
 		ast_autoservice_start(chan);
 		play_sound_file(conference, user.name_rec_location);
@@ -1782,6 +1748,7 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 	/* See if we need to automatically set this user as a video source or not */
 	handle_video_on_join(conference, user.chan, ast_test_flag(&user.u_profile, USER_OPT_MARKEDUSER));
 
+	/* Stop playing music on hold */
 	conf_moh_unsuspend(&user);
 
 	/* Join our conference bridge for real */
@@ -1809,13 +1776,13 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 		 */
 		leave_conference(&user);
 		conference = NULL;
-		goto confbridge_cleanup;
+		goto confbridge_init_and_join_cleanup;
 	}
 
 	/* If this user was a video source, we need to clean up and possibly pick a new source. */
 	handle_video_on_exit(conference, user.chan);
 
-	/* if this user has a intro, play it when leaving */
+	/* If this user has a intro, play it when leaving */
 	if (!quiet && !ast_strlen_zero(user.name_rec_location)) {
 		ast_autoservice_start(chan);
 		play_sound_file(conference, user.name_rec_location);
@@ -1824,7 +1791,7 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 		ast_autoservice_stop(chan);
 	}
 
-	/* play the leave sound */
+	/* Play the leave sound */
 	if (!quiet) {
 		const char *leave_sound = conf_get_sound(CONF_SOUND_LEAVE, user.b_profile.sounds);
 		ast_autoservice_start(chan);
@@ -1851,14 +1818,375 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 		ast_audiohook_volume_set(chan, AST_AUDIOHOOK_DIRECTION_WRITE, volume_adjustments[1]);
 	}
 
+	/* Delete the recorded intro audio */
 	if (!ast_strlen_zero(user.name_rec_location)) {
 		ast_filedelete(user.name_rec_location, NULL);
 	}
 
-confbridge_cleanup:
+confbridge_init_and_join_cleanup:
 	ast_bridge_features_cleanup(&user.features);
 	conf_bridge_profile_destroy(&user.b_profile);
 	return res;
+}
+
+// XXX here indicates this code needs to be decoupled from confbridge_exec
+/*! \brief The ConfBridge application */
+static int confbridge_exec(struct ast_channel *chan, const char *data)
+{
+	// int res = 0;  // XXX
+	// int volume_adjustments[2];  // XXX
+	// int quiet = 0;  // XXX
+	char *parse;
+	const char *b_profile_name = NULL;
+	const char *u_profile_name = NULL;
+	const char *menu_profile_name = NULL;
+	// struct confbridge_conference *conference = NULL;  // XXX
+	/*
+	struct confbridge_user user = {  // XXX
+		.chan = chan,
+		.tech_args.talking_threshold = DEFAULT_TALKING_THRESHOLD,
+		.tech_args.silence_threshold = DEFAULT_SILENCE_THRESHOLD,
+		.tech_args.drop_silence = 0,
+	};
+	*/
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(conf_name);
+		AST_APP_ARG(b_profile_name);
+		AST_APP_ARG(u_profile_name);
+		AST_APP_ARG(menu_profile_name);
+	);
+
+	/*
+	// XXX
+	if (ast_channel_state(chan) != AST_STATE_UP) {
+		ast_answer(chan);
+	}
+	*/
+
+	/*
+	// XXX
+	if (ast_bridge_features_init(&user.features)) {
+		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
+		res = -1;
+		goto confbridge_cleanup;
+	}
+	*/
+
+	/* We need to make a copy of the input string if we are going to modify it! */
+	parse = ast_strdupa(data);
+
+	AST_STANDARD_APP_ARGS(args, parse);
+
+	if (ast_strlen_zero(args.conf_name)) {
+		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
+		ast_log(LOG_WARNING, "%s requires an argument (conference name[,options])\n", app);
+		return -1;
+	}
+
+	if (strlen(args.conf_name) >= MAX_CONF_NAME) {
+		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
+		ast_log(LOG_WARNING, "%s does not accept conference names longer than %d\n", app, MAX_CONF_NAME - 1);
+		return -1;
+	}
+
+	/* bridge profile name */
+	if (args.argc > 1 && !ast_strlen_zero(args.b_profile_name)) {
+		b_profile_name = args.b_profile_name;
+	}
+	/* XXX
+	if (!conf_find_bridge_profile(chan, b_profile_name, &user.b_profile)) {  // XXX
+		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
+		ast_log(LOG_WARNING, "Conference bridge profile %s does not exist\n", b_profile_name ?
+			b_profile_name : DEFAULT_BRIDGE_PROFILE);
+		res = -1;
+		goto confbridge_cleanup;
+	}
+	*/
+
+	/* user profile name */
+	if (args.argc > 2 && !ast_strlen_zero(args.u_profile_name)) {
+		u_profile_name = args.u_profile_name;
+	}
+	/* XXX
+	if (!conf_find_user_profile(chan, u_profile_name, &user.u_profile)) {  // XXX
+		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
+		ast_log(LOG_WARNING, "Conference user profile %s does not exist\n", u_profile_name ?
+			u_profile_name : DEFAULT_USER_PROFILE);
+		res = -1;
+		goto confbridge_cleanup;
+	}
+	*/
+
+	// XXX
+	// quiet = ast_test_flag(&user.u_profile, USER_OPT_QUIET);
+
+	// XXX
+	/* ask for a PIN immediately after finding user profile.  This has to be
+	 * prompted for requardless of quiet setting. */
+	/* XXX
+	if (!ast_strlen_zero(user.u_profile.pin)) {
+		if (conf_get_pin(chan, &user)) {
+			pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
+			res = -1;
+			goto confbridge_cleanup;
+		}
+	} */
+
+	// XXX
+	/* See if we need them to record a intro name */
+	/*  XXX
+	if (!quiet &&
+		(ast_test_flag(&user.u_profile, USER_OPT_ANNOUNCE_JOIN_LEAVE) ||
+		(ast_test_flag(&user.u_profile, USER_OPT_ANNOUNCE_JOIN_LEAVE_REVIEW)))) {
+		conf_rec_name(&user, args.conf_name);
+	}
+	*/
+
+	/* menu name */
+	if (args.argc > 3 && !ast_strlen_zero(args.menu_profile_name)) {
+		menu_profile_name = args.menu_profile_name;
+	}
+
+	// XXX
+	/*
+	if (conf_set_menu_to_user(chan, &user, menu_profile_name)) {
+		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
+		ast_log(LOG_WARNING, "Conference menu profile %s does not exist\n", menu_profile_name ?
+			menu_profile_name : DEFAULT_MENU_PROFILE);
+		res = -1;
+		goto confbridge_cleanup;
+	}
+	*/
+
+	// XXX
+	/* Set if DTMF should pass through for this user or not */
+	/* XXX
+	if (ast_test_flag(&user.u_profile, USER_OPT_DTMF_PASS)) {
+		user.features.dtmf_passthrough = 1;
+	} else {
+		user.features.dtmf_passthrough = 0;
+	}
+	*/
+
+	// XXX
+	/* Set dsp threshold values if present */
+	/* XXX
+	if (user.u_profile.talking_threshold) {
+		user.tech_args.talking_threshold = user.u_profile.talking_threshold;
+	}
+	if (user.u_profile.silence_threshold) {
+		user.tech_args.silence_threshold = user.u_profile.silence_threshold;
+	}
+	*/
+
+	// XXX
+	/* Set a talker indicate call back if talking detection is requested */
+	/* XXX
+	if (ast_test_flag(&user.u_profile, USER_OPT_TALKER_DETECT)) {
+		if (ast_bridge_talk_detector_hook(&user.features, conf_handle_talker_cb,
+			&user, NULL, AST_BRIDGE_HOOK_REMOVE_ON_PULL)) {
+			pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
+			res = -1;
+			goto confbridge_cleanup;
+		}
+	}
+	*/
+
+	// XXX
+	/* If the caller should be joined already muted, set the flag before we join. */
+	/* XXX
+	if (ast_test_flag(&user.u_profile, USER_OPT_STARTMUTED)) {
+		user.muted = 1;
+	}
+	*/
+
+	// XXX
+	/* Look for a conference bridge matching the provided name */
+	/* XXX
+	if (!(conference = join_conference_bridge(args.conf_name, &user))) {
+		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
+		res = -1;
+		goto confbridge_cleanup;
+	}
+	*/
+
+	// XXX
+	/* Keep a copy of volume adjustments so we can restore them later if need be */
+	/* XXX
+	volume_adjustments[0] = ast_audiohook_volume_get(chan, AST_AUDIOHOOK_DIRECTION_READ);
+	volume_adjustments[1] = ast_audiohook_volume_get(chan, AST_AUDIOHOOK_DIRECTION_WRITE);
+	*/
+
+	// XXX
+	/* XXX
+	if (ast_test_flag(&user.u_profile, USER_OPT_DROP_SILENCE)) {
+		user.tech_args.drop_silence = 1;
+	}
+	*/
+
+	// XXX
+	/*
+	if (ast_test_flag(&user.u_profile, USER_OPT_JITTERBUFFER)) {
+		char *func_jb;
+		if ((func_jb = ast_module_helper("", "func_jitterbuffer", 0, 0, 0, 0))) {
+			ast_free(func_jb);
+			ast_func_write(chan, "JITTERBUFFER(adaptive)", "default");
+		}
+	}
+	*/
+
+	// XXX
+	/*
+	if (ast_test_flag(&user.u_profile, USER_OPT_DENOISE)) {
+		char *mod_speex;
+		if ((mod_speex = ast_module_helper("", "codec_speex", 0, 0, 0, 0))) {
+			ast_free(mod_speex);
+			ast_func_write(chan, "DENOISE(rx)", "on");
+		}
+	}
+	*/
+
+	// XXX
+	/* if this user has a intro, play it before entering */
+	/*
+	if (!ast_strlen_zero(user.name_rec_location)) {
+		ast_autoservice_start(chan);
+		play_sound_file(conference, user.name_rec_location);
+		play_sound_file(conference,
+			conf_get_sound(CONF_SOUND_HAS_JOINED, user.b_profile.sounds));
+		ast_autoservice_stop(chan);
+	}*/
+
+	// XXX
+	/* Play the Join sound to both the conference and the user entering. */
+	/* XXX
+	if (!quiet) {
+		const char *join_sound = conf_get_sound(CONF_SOUND_JOIN, user.b_profile.sounds);
+
+		ast_stream_and_wait(chan, join_sound, "");
+		ast_autoservice_start(chan);
+		play_sound_file(conference, join_sound);
+		ast_autoservice_stop(chan);
+	}
+	*/
+
+	// XXX
+	/* See if we need to automatically set this user as a video source or not */
+	/* XXX
+	handle_video_on_join(conference, user.chan, ast_test_flag(&user.u_profile, USER_OPT_MARKEDUSER));
+	*/
+
+	// XXX
+	/*  XXX
+	conf_moh_unsuspend(&user);
+	*/
+
+	// XXX
+	/* Join our conference bridge for real */
+	/* XXX
+	send_join_event(&user, conference);
+	ast_bridge_join(conference->bridge,
+		chan,
+		NULL,
+		&user.features,
+		&user.tech_args,
+		0);
+		*/
+
+	// XXX
+	/* XXX
+	if (!user.kicked && ast_check_hangup(chan)) {
+		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "HANGUP");
+	}
+	*/
+
+	// XXX
+	/* XXX
+	send_leave_event(&user, conference);
+	*/
+
+	// XXX
+	/* if we're shutting down, don't attempt to do further processing */
+//	if (ast_shutting_down()) {
+//		/*
+//		 * Not taking any new calls at this time.  We cannot create
+//		 * the announcer channel if this is the first channel into
+//		 * the conference and we certainly cannot create any
+//		 * recording channel.
+//		 */
+//		leave_conference(&user);
+//		conference = NULL;
+//		goto confbridge_cleanup;
+//	}
+
+	// XXX
+	/* If this user was a video source, we need to clean up and possibly pick a new source. */
+	/* XXX
+	handle_video_on_exit(conference, user.chan);
+	*/
+
+	// XXX
+	/* if this user has a intro, play it when leaving */
+	/* XXX
+	if (!quiet && !ast_strlen_zero(user.name_rec_location)) {
+		ast_autoservice_start(chan);
+		play_sound_file(conference, user.name_rec_location);
+		play_sound_file(conference,
+			conf_get_sound(CONF_SOUND_HAS_LEFT, user.b_profile.sounds));
+		ast_autoservice_stop(chan);
+	}
+	*/
+
+	// XXX
+	/* play the leave sound */
+	/* XXX
+	if (!quiet) {
+		const char *leave_sound = conf_get_sound(CONF_SOUND_LEAVE, user.b_profile.sounds);
+		ast_autoservice_start(chan);
+		play_sound_file(conference, leave_sound);
+		ast_autoservice_stop(chan);
+	}
+	*/
+
+	// XXX
+	/* Easy as pie, depart this channel from the conference bridge */
+	/* XXX
+	leave_conference(&user);
+	conference = NULL;
+	*/
+
+	// XXX
+	/* If the user was kicked from the conference play back the audio prompt for it */
+	/* XXX
+	if (!quiet && user.kicked) {
+		res = ast_stream_and_wait(chan,
+			conf_get_sound(CONF_SOUND_KICKED, user.b_profile.sounds),
+			"");
+	}
+	*/
+
+	// XXX
+	/* Restore volume adjustments to previous values in case they were changed */
+	/* XXX
+	if (volume_adjustments[0]) {
+		ast_audiohook_volume_set(chan, AST_AUDIOHOOK_DIRECTION_READ, volume_adjustments[0]);
+	}
+	if (volume_adjustments[1]) {
+		ast_audiohook_volume_set(chan, AST_AUDIOHOOK_DIRECTION_WRITE, volume_adjustments[1]);
+	}
+	*/
+
+	/* XXX
+	if (!ast_strlen_zero(user.name_rec_location)) {
+		ast_filedelete(user.name_rec_location, NULL);
+	}
+	*/
+
+	return confbridge_init_and_join(chan,
+			args.conf_name,
+			u_profile_name,
+			b_profile_name,
+			menu_profile_name);
 }
 
 static int action_toggle_mute(struct confbridge_conference *conference,
@@ -2805,6 +3133,8 @@ static struct ast_cli_entry cli_confbridge[] = {
 	AST_CLI_DEFINE(handle_cli_confbridge_unlock, "Unlock a conference."),
 	AST_CLI_DEFINE(handle_cli_confbridge_start_record, "Start recording a conference"),
 	AST_CLI_DEFINE(handle_cli_confbridge_stop_record, "Stop recording a conference."),
+  AST_CLI_DEFINE(bla_show_trunks, "Show BLA Trunks"),
+  AST_CLI_DEFINE(bla_show_stations, "Show BLA Stations"),
 };
 static struct ast_custom_function confbridge_function = {
 	.name = "CONFBRIDGE",
@@ -3326,6 +3656,8 @@ static int register_channel_tech(struct ast_channel_tech *tech)
 /*! \brief Called when module is being unloaded */
 static int unload_module(void)
 {
+	ast_unregister_application(bla_station_app);
+	ast_unregister_application(bla_trunk_app);
 	ast_unregister_application(app);
 
 	ast_custom_function_unregister(&confbridge_function);
@@ -3346,6 +3678,11 @@ static int unload_module(void)
 
 	/* Unsubscribe from stasis confbridge message type and clean it up. */
 	manager_confbridge_shutdown();
+	bla_stasis_shutdown();
+
+	/* Free our Bridged Line Appearances resources */
+  ast_devstate_prov_del("BLA");
+	bla_destroy();  /* FIXME: determine if this is a safe place for bla_destroy() */
 
 	/* Get rid of the conference bridges container. Since we only allow dynamic ones none will be active. */
 	ao2_cleanup(conference_bridges);
@@ -3373,13 +3710,23 @@ static int load_module(void)
 {
 	int res = 0;
 
+	ast_debug(1, "Reading config files for confbridge\n");
 	if (conf_load_config()) {
 		ast_log(LOG_ERROR, "Unable to load config. Not loading module.\n");
 		return AST_MODULE_LOAD_DECLINE;
 	}
+	if (bla_load_config(0)) {
+		ast_log(AST_LOG_WARNING, "Unable to load " BLA_CONFIG_FILE "; Not using BLA.\n");
+	} else {
+		if (ast_devstate_prov_add("BLA", bla_devstate)) {  /* FIXME: can probably move this to conf_bla.c */
+			ast_log(LOG_ERROR, "Unable to register BLA devstate provider. Not loading module.\n");
+			return AST_MODULE_LOAD_DECLINE;
+		}
+		ast_log(AST_LOG_NOTICE, "Loaded " BLA_CONFIG_FILE "; Using BLA.\n");
+	}
 
 	if (register_channel_tech(conf_record_get_tech())
-		|| register_channel_tech(conf_announce_get_tech())) {
+			|| register_channel_tech(conf_announce_get_tech())) {
 		unload_module();
 		return AST_MODULE_LOAD_FAILURE;
 	}
@@ -3394,8 +3741,17 @@ static int load_module(void)
 
 	/* Setup manager stasis subscriptions */
 	res |= manager_confbridge_init();
+	res |= bla_stasis_init();
 
 	res |= ast_register_application_xml(app, confbridge_exec);
+	// TODO: change this to ast_register_application_xml after writing xml documentation
+	res |= ast_register_application(bla_trunk_app, bla_trunk_exec,
+			"BLATrunk application",
+			"TODO: write a longer description");
+	// TODO: change this to ast_register_application_xml after writing xml documentation
+	res |= ast_register_application(bla_station_app, bla_station_exec,
+			"BLAStation application",
+			"TODO: write a longer description");
 
 	res |= ast_custom_function_register_escalating(&confbridge_function, AST_CFE_WRITE);
 	res |= ast_custom_function_register(&confbridge_info_function);
@@ -3412,6 +3768,7 @@ static int load_module(void)
 	res |= ast_manager_register_xml("ConfbridgeStartRecord", EVENT_FLAG_SYSTEM, action_confbridgestartrecord);
 	res |= ast_manager_register_xml("ConfbridgeStopRecord", EVENT_FLAG_SYSTEM, action_confbridgestoprecord);
 	res |= ast_manager_register_xml("ConfbridgeSetSingleVideoSrc", EVENT_FLAG_CALL, action_confbridgesetsinglevideosrc);
+
 	if (res) {
 		unload_module();
 		return AST_MODULE_LOAD_FAILURE;
