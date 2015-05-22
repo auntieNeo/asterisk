@@ -55,6 +55,10 @@
  * [ ] Document EVERYTHING
  */
 
+/* BLA Application Strings */
+const char bla_station_app[] = "BLAStation";
+const char bla_trunk_app[] = "BLATrunk";
+
 /* BLA enums */
 enum bla_hold_access {
 	/*! This means that any station can put it on hold, and any station
@@ -264,7 +268,7 @@ struct bla_run_station_args {
 static struct ao2_container *bla_stations;
 static struct ao2_container *bla_trunks;
 
-static const char bla_registrar[] = "SLA";
+static const char bla_registrar[] = "BLA";
 
 /* Static BLA Function Prototypes */
 static int bla_build_trunk(struct ast_config *cfg, const char *cat);
@@ -976,7 +980,47 @@ static int bla_build_station(struct ast_config *cfg, const char *cat)
 
 	ao2_unlock(station);
 
-	/* TODO: A lot of stuff to do for the autocontext */
+	if (!ast_strlen_zero(station->autocontext)) {
+		struct ast_context *context;
+		struct bla_trunk_ref *trunk_ref;
+		context = ast_context_find_or_create(NULL, NULL, station->autocontext, bla_registrar);
+		if (!context) {
+			ast_log(LOG_ERROR, "Failed to automatically find or create "
+				"context '%s' for BLA!\n", station->autocontext);
+			return -1;
+		}
+		/* The extension for when the handset goes off-hook.
+		 * exten => station1,1,BLAStation(station1) */
+		if (ast_add_extension2(context, 0 /* don't replace */, station->name, 1,
+			NULL, NULL, bla_station_app, ast_strdup(station->name), ast_free_ptr, bla_registrar)) {
+			ast_log(LOG_ERROR, "Failed to automatically create extension "
+				"for station '%s'!\n", station->name);
+			return -1;
+		}
+		AST_LIST_TRAVERSE(&station->trunks, trunk_ref, entry) {
+			char exten[AST_MAX_EXTENSION];
+			char hint[AST_MAX_APP];
+			snprintf(exten, sizeof(exten), "%s_%s", station->name, trunk_ref->trunk->name);
+			snprintf(hint, sizeof(hint), "BLA:%s", exten);
+			/* Extension for this line button 
+			 * exten => station1_line1,1,SLAStation(station1_line1) */
+			if (ast_add_extension2(context, 0 /* don't replace */, exten, 1,
+				NULL, NULL, bla_station_app, ast_strdup(exten), ast_free_ptr, bla_registrar)) {
+				ast_log(LOG_ERROR, "Failed to automatically create extension "
+					"for station '%s'!\n", station->name);
+				return -1;
+			}
+			/* FIXME: figure out what this does, and write a test to check that it works */
+			/* Hint for this line button 
+			 * exten => station1_line1,hint,SLA:station1_line1 */
+			if (ast_add_extension2(context, 0 /* don't replace */, exten, PRIORITY_HINT,
+				NULL, NULL, hint, NULL, NULL, bla_registrar)) {
+				ast_log(LOG_ERROR, "Failed to automatically create hint "
+					"for station '%s'!\n", station->name);
+				return -1;
+			}
+		}
+	}
 
 	if (!existing_station) {
 		ao2_link(bla_stations, station);
@@ -998,7 +1042,7 @@ static void bla_trunk_destroy(struct bla_trunk *self)
 	/* TODO: remove context extension? */
 	/*
 	   if (!ast_strlen_zero(trunk->autocontext)) {
-	   ast_context_remove_extension(trunk->autocontext, "s", 1, bla_register);
+	   ast_context_remove_extension(trunk->autocontext, "s", 1, bla_registrar);
 	   }
 	 */
 
@@ -1069,7 +1113,20 @@ static void bla_station_destroy(struct bla_station *self)
 {
 	ast_debug(1, "Destroying bla_station '%s'\n", self->name);
 
-	/* TODO: a lot of destruction needs to be done if self->autocontext is set */
+	if (!ast_strlen_zero(self->autocontext)) {
+		struct bla_trunk_ref *trunk_ref;
+
+		AST_LIST_TRAVERSE(&self->trunks, trunk_ref, entry) {
+			char exten[AST_MAX_EXTENSION];
+			char hint[AST_MAX_APP];
+			snprintf(exten, sizeof(exten), "%s_%s", self->name, trunk_ref->trunk->name);
+			snprintf(hint, sizeof(hint), "BLA:%s", exten);
+			ast_context_remove_extension(self->autocontext, exten, 
+				1, bla_registrar);
+			ast_context_remove_extension(self->autocontext, hint, 
+				PRIORITY_HINT, bla_registrar);
+		}
+	}
 
 	bla_station_release_refs(self, NULL, 0);
 

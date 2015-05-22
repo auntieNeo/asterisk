@@ -7,6 +7,10 @@
 struct ast_channel;
 struct ast_cli_entry;
 
+/* BLA Application Strings */
+extern const char bla_station_app[];
+extern const char bla_trunk_app[];
+
 /* BLA Function Prototypes */
 int bla_load_config(int reload);
 void bla_destroy(void);

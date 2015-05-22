@@ -324,8 +324,6 @@ ASTERISK_REGISTER_FILE()
  */
 
 static const char app[] = "ConfBridge";
-static const char bla_station_app[] = "BLAStation";
-static const char bla_trunk_app[] = "BLATrunk";
 
 /*! Number of buckets our conference bridges container can have */
 #define CONFERENCE_BRIDGE_BUCKETS 53
