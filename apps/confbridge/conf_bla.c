@@ -896,7 +896,23 @@ static int bla_build_trunk(struct ast_config *cfg, const char *cat)
 
 	ao2_unlock(trunk);
 
-	/* TODO: find or create the autocontext */
+	if (!ast_strlen_zero(trunk->autocontext)) {
+		struct ast_context *context;
+		context = ast_context_find_or_create(NULL, NULL, trunk->autocontext, bla_registrar);
+		if (!context) {
+			ast_log(LOG_ERROR, "Failed to automatically find or create "
+				"context '%s' for BLA!\n", trunk->autocontext);
+			return -1;
+		}
+		/* Extension for calls coming in on this line.
+		 * exten => s,1,BLATrunk(line1) */
+		if (ast_add_extension2(context, 0 /* don't replace */, "s", 1,
+			NULL, NULL, bla_trunk_app, ast_strdup(trunk->name), ast_free_ptr, bla_registrar)) {
+			ast_log(LOG_ERROR, "Failed to automatically create extension "
+				"for trunk '%s'!\n", trunk->name);
+			return -1;
+		}
+	}
 
 	/* increment the reference count on bla_trunks (if we need to) */
 	if (!existing_trunk) {
@@ -1039,12 +1055,9 @@ static void bla_trunk_destroy(struct bla_trunk *self)
 {
 	ast_debug(1, "Destroying bla_trunk '%s'\n", self->name);
 
-	/* TODO: remove context extension? */
-	/*
-	   if (!ast_strlen_zero(trunk->autocontext)) {
-	   ast_context_remove_extension(trunk->autocontext, "s", 1, bla_registrar);
-	   }
-	 */
+  if (!ast_strlen_zero(self->autocontext)) {
+    ast_context_remove_extension(self->autocontext, "s", 1, bla_registrar);
+  }
 
 	bla_trunk_release_refs(self, NULL, 0);
 
