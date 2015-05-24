@@ -829,28 +829,16 @@ static int bla_build_trunk(struct ast_config *cfg, const char *cat)
 				ast_log(LOG_WARNING, "Invalid value '%s' for hold on trunk %s\n",
 						var->value, trunk->name);
 			}
-		} else if (!strcasecmp(var->name, "trunk_user_profile")) {
-			// FIXME: consider using "inbound_user_profile" unless "inbound" would cause confusion
-			/* Look for the user profile
+		} else if (!strcasecmp(var->name, "user_profile")) {
+			/* Look for the user profile for users dialing into this trunk
+       * through the BLATrunk() application
 			 * (it must have been specified in confbridge.conf) */
 			if (!(conf_find_user_profile(NULL, var->value, &u_profile))) {
-				ast_log(LOG_WARNING, "Nonexistant trunk_user_profile '%s' specified for trunk %s\n",
+				ast_log(LOG_WARNING, "Nonexistant user_profile '%s' specified for trunk %s\n",
 						var->value, trunk->name);
 			} else {
 				ast_string_field_set(trunk, trunk_user_profile, var->value);
-				ast_debug(3, "Set trunk_user_profile to '%s' for trunk '%s'",
-						var->value, trunk->name);
-			}
-		} else if (!strcasecmp(var->name, "station_user_profile")) {
-			// FIXME: consider using "outbound_user_profile" unless "outbound" would cause confusion
-			/* Look for the user profile
-			 * (it must have been specified in confbridge.conf) */
-			if (!(conf_find_user_profile(NULL, var->value, &u_profile))) {
-				ast_log(LOG_WARNING, "Nonexistant station_user_profile '%s' specified for trunk %s\n",
-						var->value, trunk->name);
-			} else {
-				ast_string_field_set(trunk, station_user_profile, var->value);
-				ast_debug(3, "Set station_user_profile to '%s' for trunk '%s'",
+				ast_debug(3, "Set user_profile to '%s' for trunk '%s'",
 						var->value, trunk->name);
 			}
 		} else if (!strcasecmp(var->name, "bridge_profile")) {
@@ -871,28 +859,7 @@ static int bla_build_trunk(struct ast_config *cfg, const char *cat)
 		}
 	}
 
-	/* set default profiles if needed */
-	/* FIXME: consider adding a DEFAULT_TRUNK_USER_PROFILE */
-	/* FIXME: empty strings might be fine here... */
-	if (ast_strlen_zero(trunk->trunk_user_profile)) {
-		ast_string_field_set(trunk, trunk_user_profile, DEFAULT_USER_PROFILE);
-		ast_debug(3, "Set default trunk_user_profile for trunk '%s'",
-				trunk->name);
-	}
-	/* FIXME: consider adding a DEFAULT_STATION_USER_PROFILE */
-	/* FIXME: empty strings might be fine here... */
-	if (ast_strlen_zero(trunk->station_user_profile)) {
-		ast_string_field_set(trunk, station_user_profile, DEFAULT_USER_PROFILE);
-		ast_debug(3, "Set default station_user_profile for trunk '%s'",
-				trunk->name);
-	}
-	/* FIXME: consider adding a DEFAULT_BLA_BRIDGE_PROFILE */
-	/* FIXME: empty strings might be fine here... */
-	if (ast_strlen_zero(trunk->bridge_profile)) {
-		ast_string_field_set(trunk, bridge_profile, DEFAULT_BRIDGE_PROFILE);
-		ast_debug(3, "Set default bridge_profile for trunk '%s'",
-				trunk->name);
-	}
+  /* TODO: Give warning if default user/bridge profile is specified (i.e. null string) but not defined */
 
 	ao2_unlock(trunk);
 
@@ -993,6 +960,8 @@ static int bla_build_station(struct ast_config *cfg, const char *cat)
 					var->name, var->lineno, BLA_CONFIG_FILE);
 		}
 	}
+
+  /* TODO: Give warning if default user profile is specified (i.e. null string) but not defined */
 
 	ao2_unlock(station);
 

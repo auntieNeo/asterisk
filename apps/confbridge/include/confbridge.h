@@ -40,9 +40,9 @@
 #define DEFAULT_USER_PROFILE "default_user"
 #define DEFAULT_BRIDGE_PROFILE "default_bridge"
 #define DEFAULT_MENU_PROFILE "default_menu"
-#define DEFAULT_TRUNK_BRIDGE_PROFILE "default_trunk_bridge"
-#define DEFAULT_TRUNK_USER_PROFILE "default_trunk_user"
-#define DEFAULT_STATION_USER_PROFILE "default_station_user"
+#define DEFAULT_TRUNK_BRIDGE_PROFILE "default_bla_bridge"
+#define DEFAULT_TRUNK_USER_PROFILE "default_bla_trunk_user"
+#define DEFAULT_STATION_USER_PROFILE "default_bla_station_user"
 
 #define DEFAULT_TALKING_THRESHOLD 160
 #define DEFAULT_SILENCE_THRESHOLD 2500
