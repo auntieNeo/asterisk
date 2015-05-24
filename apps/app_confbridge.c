@@ -1614,7 +1614,7 @@ int confbridge_init_and_join(struct ast_channel *chan,
 		goto confbridge_init_and_join_cleanup;
 	}
 
-	/* Read the bridge profile into the sure struct */
+	/* Read the bridge profile into the user struct */
 	if (!conf_find_bridge_profile(chan, bridge_profile_name, &user.b_profile)) {
 		pbx_builtin_setvar_helper(chan, "CONFBRIDGE_RESULT", "FAILED");
 		ast_log(LOG_WARNING, "Conference bridge profile '%s' does not exist\n",

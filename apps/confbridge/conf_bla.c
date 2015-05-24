@@ -334,6 +334,9 @@ static void bla_trunk_user_profile_name(const struct bla_trunk *trunk, char *use
 static void bla_trunk_bridge_profile_name(const struct bla_trunk *trunk, char *bridge_profile_name);
 static void bla_trunk_conference_name(const struct bla_trunk *trunk, char *conference_name);
 static void bla_hangup_stations(void);
+static void bla_register_default_bridge();
+static void bla_register_default_station_user();
+static void bla_register_default_trunk_user();
 /* BLA Thread Callback Prototypes */
 static void *bla_dial_trunk(struct bla_dial_trunk_args *args);
 static void *bla_run_station(struct bla_run_station_args *args);
