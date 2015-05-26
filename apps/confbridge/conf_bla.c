@@ -112,8 +112,7 @@ struct bla_trunk {
 			AST_STRING_FIELD(name);
 			AST_STRING_FIELD(device);
 			AST_STRING_FIELD(autocontext);	
-			AST_STRING_FIELD(trunk_user_profile);
-			AST_STRING_FIELD(station_user_profile);
+			AST_STRING_FIELD(user_profile);
 			AST_STRING_FIELD(bridge_profile);
 			);
 	AST_LIST_HEAD_NOLOCK(, bla_station_ref) stations;
@@ -150,7 +149,7 @@ struct bla_trunk_ref {
 	AST_LIST_ENTRY(bla_trunk_ref) entry;
 	struct bla_trunk *trunk;
 	enum bla_trunk_state state;
-	struct ast_channel *chan;
+	struct ast_channel *chan;  /* FIXME: I am not sure why this is used and not trunk->chan. Must document better. */
 	/*! Ring timeout to use when this trunk is ringing on this specific
 	 *  station.  This takes higher priority than a ring timeout set at
 	 *  the station level. */
@@ -334,9 +333,6 @@ static void bla_trunk_user_profile_name(const struct bla_trunk *trunk, char *use
 static void bla_trunk_bridge_profile_name(const struct bla_trunk *trunk, char *bridge_profile_name);
 static void bla_trunk_conference_name(const struct bla_trunk *trunk, char *conference_name);
 static void bla_hangup_stations(void);
-static void bla_register_default_bridge();
-static void bla_register_default_station_user();
-static void bla_register_default_trunk_user();
 /* BLA Thread Callback Prototypes */
 static void *bla_dial_trunk(struct bla_dial_trunk_args *args);
 static void *bla_run_station(struct bla_run_station_args *args);
@@ -507,7 +503,6 @@ int bla_trunk_exec(struct ast_channel *chan, const char *data)
 		}
 	}
 
-	/* FIXME: do we need to check that trunk_name was provided? */
 	trunk = bla_find_trunk(args.trunk_name);
 
 	if (!trunk) {
@@ -538,15 +533,19 @@ int bla_trunk_exec(struct ast_channel *chan, const char *data)
 	bla_trunk_user_profile_name(trunk, user_profile_name);
 	bla_trunk_bridge_profile_name(trunk, bridge_profile_name);
 
-	/* FIXME: Need some option to ring with MOH here
+	/* FIXME: Need some option to ring with MOH here */
+  /* TODO: Actually read options into BLATrunk() */
+  /*
 	   if (ast_test_flag(&opt_flags, SLA_TRUNK_OPT_MOH)) {
 	   ast_indicate(chan, -1);
 	   ast_set_flag64(&conf_flags, CONFFLAG_MOH);
 	   } else
-	   ast_indicate(chan, AST_CONTROL_RINGING);
-	 */
+  */
+	ast_indicate(chan, AST_CONTROL_RINGING);
 
 	/* Actually join the conference */
+  /* FIXME: Need option to not join the conference until it has started (or something) */
+  /* FIXME: What happens when nobody answers this trunk? */
 	ast_debug(1, "Joining the conference in BLATrunk() '%s' thread.",
 			trunk->name);
 	/* FIXME: Do we need to check the return status of confbridge_init_and_join?
@@ -840,7 +839,7 @@ static int bla_build_trunk(struct ast_config *cfg, const char *cat)
 				ast_log(LOG_WARNING, "Nonexistant user_profile '%s' specified for trunk %s\n",
 						var->value, trunk->name);
 			} else {
-				ast_string_field_set(trunk, trunk_user_profile, var->value);
+				ast_string_field_set(trunk, user_profile, var->value);
 				ast_debug(3, "Set user_profile to '%s' for trunk '%s'",
 						var->value, trunk->name);
 			}
@@ -1906,16 +1905,13 @@ static void bla_station_user_profile_name(const struct bla_station *station, con
 	/* When determining the user profile for a station, the
 	 * settings are checked in this order:
 	 *   1. user_profile set for the station in bla.conf
-	 *   2. station_user_profile set for the trunk in bla.conf
-	 *   3. The DEFAULT_STATION_USER_PROFILE macro
+	 *   2. The DEFAULT_STATION_USER_PROFILE macro
 	 */
 	/* TODO: Maybe check station_user_profile set by CONFBRIDGE() ? */
 	if (!ast_strlen_zero(station->user_profile))
 		ast_copy_string(user_profile_name, station->user_profile, MAX_PROFILE_NAME);
-	else if (!ast_strlen_zero(trunk->station_user_profile))
-		ast_copy_string(user_profile_name, trunk->station_user_profile, MAX_PROFILE_NAME);
 	else
-		ast_copy_string(user_profile_name, DEFAULT_TRUNK_USER_PROFILE, MAX_PROFILE_NAME);
+		ast_copy_string(user_profile_name, DEFAULT_STATION_USER_PROFILE, MAX_PROFILE_NAME);
 }
 
 /*!
@@ -1932,12 +1928,12 @@ static void bla_trunk_user_profile_name(const struct bla_trunk *trunk, char *use
 	/* Determine the user profile for this trunk */
 	/* When determining the user profile for a trunk, the
 	 * settings are checked in this order:
-	 *   1. trunk_user_profile set for the trunk in bla.conf
+	 *   1. user_profile set for the trunk in bla.conf
 	 *   2. The DEFAULT_TRUNK_USER_PROFILE macro
 	 */
 	/* TODO: Maybe check trunk_user_profile set by CONFBRIDGE() ? */
-	if (!ast_strlen_zero(trunk->trunk_user_profile))
-		ast_copy_string(user_profile_name, trunk->trunk_user_profile, MAX_PROFILE_NAME);
+	if (!ast_strlen_zero(trunk->user_profile))
+		ast_copy_string(user_profile_name, trunk->user_profile, MAX_PROFILE_NAME);
 	else
 		ast_copy_string(user_profile_name, DEFAULT_TRUNK_USER_PROFILE, MAX_PROFILE_NAME);
 }
@@ -2254,6 +2250,7 @@ static void *bla_run_station(struct bla_run_station_args *args)
 	ast_atomic_fetchadd_int((int *) &trunk_ref->trunk->active_stations, 1);
 
 	/* FIXME: comment this */
+  /* FIXME: I'm pretty sure this has already been called from bla_handle_dial_state_event */
 	bla_answer_trunk_chan(trunk_ref->chan);
 
 	/* Find the bridge profile, user profile, and conference names */
@@ -2267,7 +2264,7 @@ static void *bla_run_station(struct bla_run_station_args *args)
 			station->name);
 	/* FIXME: Do we need to check the return status of confbridge_init_and_join?
 	 * It should handle its own errors just fine... */
-	confbridge_init_and_join(trunk_ref->trunk->chan,
+	confbridge_init_and_join(trunk_ref->chan,  /* FIXME: The naming of these symbols is confusing. trunk_ref->chan is actually the station's channel */
 			conf_name,
 			user_profile_name,
 			bridge_profile_name,
@@ -2796,8 +2793,7 @@ char *bla_show_trunks(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 				"=== ==> BargeAllowed: %s\n"
 				"=== ==> HoldAccess:   %s\n"
 				"=== ==> BridgeProfile:   %s\n"
-				"=== ==> TrunkUserProfile:   %s\n"
-				"=== ==> StationUserProfile:   %s\n"
+				"=== ==> UserProfile:   %s\n"
 				"=== ==> Stations ...\n",
 				trunk->name, trunk->device, 
 				S_OR(trunk->autocontext, "(none)"), 
@@ -2805,8 +2801,7 @@ char *bla_show_trunks(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 				trunk->barge_disabled ? "No" : "Yes",
 				bla_hold_access_str(trunk->hold_access),
 				trunk->bridge_profile,
-				trunk->trunk_user_profile,
-				trunk->station_user_profile);
+				trunk->user_profile);
 
 		AST_LIST_TRAVERSE(&trunk->stations, station_ref, entry) {
 			ast_cli(a->fd, "===    ==> Station name: %s\n", station_ref->station->name);
