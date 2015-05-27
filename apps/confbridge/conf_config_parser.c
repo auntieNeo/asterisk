@@ -2046,7 +2046,6 @@ static int add_default_bla_bridge_profile(struct confbridge_cfg *cfg)
   struct ast_category *category;
   struct ast_variable *variable;
 
-  /* TODO: Probably move this into a different function for easier RAII */
   /* TODO: Move code for adding BLA profiles to conf_bla.c? Maybe. It might be a pain to interface with a different translation unit. */
   /* Add default BLA bridge profile */
   bridge_profile = ao2_find(cfg->bridge_profiles, DEFAULT_TRUNK_BRIDGE_PROFILE, OBJ_KEY);
@@ -2094,36 +2093,14 @@ static int add_default_bla_station_user_profile(struct confbridge_cfg *cfg)
     ast_variable_append(category, variable);
     variable = ast_variable_new("quiet", "yes", "");
     ast_variable_append(category, variable);
+    variable = ast_variable_new("announce_only_user", "no", "");
+    ast_variable_append(category, variable);
     variable = ast_variable_new("dtmf_passthrough", "yes", "");
     ast_variable_append(category, variable);
     variable = ast_variable_new("marked", "yes", "");  /* FIXME: I don't think the marked user system works quite how I want it to in BLA */
     ast_variable_append(category, variable);
     ast_category_append(config, category);
     aco_process_category_options(&user_type, config, DEFAULT_STATION_USER_PROFILE, user_profile);
-		ao2_link(cfg->user_profiles, user_profile);
-	}
-  /* Add default BLA trunk user profile */
-	user_profile = ao2_find(cfg->user_profiles, DEFAULT_TRUNK_USER_PROFILE, OBJ_KEY);
-	if (!user_profile) {
-		user_profile = user_profile_alloc(DEFAULT_TRUNK_USER_PROFILE);
-		if (!user_profile) {
-			return -1;
-		}
-		ast_log(AST_LOG_NOTICE, "Adding %s profile to app_confbridge\n", DEFAULT_TRUNK_USER_PROFILE);
-		aco_set_defaults(&user_type, DEFAULT_TRUNK_USER_PROFILE, user_profile);
-		ao2_link(cfg->user_profiles, user_profile);
-    config = ast_config_new();
-    category = ast_category_new(DEFAULT_TRUNK_USER_PROFILE, "", -1);
-    variable = ast_variable_new("type", "user", "");
-    ast_variable_append(category, variable);
-    variable = ast_variable_new("quiet", "yes", "");
-    ast_variable_append(category, variable);
-    variable = ast_variable_new("dtmf_passthrough", "yes", "");
-    ast_variable_append(category, variable);
-    variable = ast_variable_new("end_marked", "yes", "");  /* FIXME: I don't think the marked user system works quite how I want it to in BLA */
-    ast_variable_append(category, variable);
-    ast_category_append(config, category);
-    aco_process_category_options(&bridge_type, config, DEFAULT_TRUNK_USER_PROFILE, user_profile);
 		ao2_link(cfg->user_profiles, user_profile);
 	}
 
@@ -2154,6 +2131,8 @@ static int add_default_bla_trunk_user_profile(struct confbridge_cfg *cfg)
     variable = ast_variable_new("type", "user", "");
     ast_variable_append(category, variable);
     variable = ast_variable_new("quiet", "yes", "");
+    ast_variable_append(category, variable);
+    variable = ast_variable_new("announce_only_user", "no", "");
     ast_variable_append(category, variable);
     variable = ast_variable_new("dtmf_passthrough", "yes", "");
     ast_variable_append(category, variable);
