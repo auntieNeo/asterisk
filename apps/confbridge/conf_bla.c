@@ -1899,6 +1899,7 @@ static void bla_station_ref_destructor(struct bla_station_ref *station_ref)
  *
  * \sa confbridge_init_and_join()
  */
+/* FIXME: get rid of the trunk parameter */
 static void bla_station_user_profile_name(const struct bla_station *station, const struct bla_trunk *trunk, char *user_profile_name)
 {
 	/* Determine the user profile for this station */
