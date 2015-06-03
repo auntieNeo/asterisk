@@ -6549,6 +6549,9 @@ static void sla_handle_ringing_trunk_event(void)
 
 static void sla_handle_hold_event(struct sla_event *event)
 {
+  /* FIXME: This is a very unsafe way to communicate between these threads */
+  if (trunk_ref->trunk->chan == NULL)
+    return;  /* The trunk has already exited the conference; nothing to do */
 	ast_atomic_fetchadd_int((int *) &event->trunk_ref->trunk->hold_stations, 1);
 	event->trunk_ref->state = SLA_TRUNK_STATE_ONHOLD_BYME;
 	ast_devstate_changed(AST_DEVICE_ONHOLD, AST_DEVSTATE_CACHABLE, "SLA:%s_%s",

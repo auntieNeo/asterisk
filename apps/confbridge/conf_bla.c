@@ -6,6 +6,7 @@
 #include "asterisk/config.h"
 #include "asterisk/devicestate.h"
 #include "asterisk/dial.h"
+#include "asterisk/framehook.h"
 #include "asterisk/json.h"
 #include "asterisk/linkedlists.h"
 #include "asterisk/lock.h"
@@ -51,6 +52,7 @@
  * [ ] Add a lot of debugging statements
  * [ ] Figure out what sla_queue_event_conf() does and implement that for BLA
  * [ ] Test ringing stations
+ * [ ] Consolidate the four BLAStation()/BLATrunk() station/trunk codepaths into two codepaths
  * [ ] Clean up the TODO/FIXME tags
  * [ ] Document EVERYTHING
  */
@@ -263,6 +265,11 @@ struct bla_run_station_args {
 	ast_cond_t *cond;
 };
 
+struct bla_hold_event_args {
+	struct bla_station *station;
+	struct bla_trunk_ref *trunk_ref;
+};
+
 /* BLA variables */
 static struct ao2_container *bla_stations;
 static struct ao2_container *bla_trunks;
@@ -333,6 +340,8 @@ static void bla_trunk_user_profile_name(const struct bla_trunk *trunk, char *use
 static void bla_trunk_bridge_profile_name(const struct bla_trunk *trunk, char *bridge_profile_name);
 static void bla_trunk_conference_name(const struct bla_trunk *trunk, char *conference_name);
 static void bla_hangup_stations(void);
+static int bla_hold_consume_callback(struct bla_station *station, enum ast_frame_type type);
+static struct ast_frame *bla_hold_event_callback(struct ast_channel *chan, struct ast_frame *frame, enum ast_framehook_event event, struct bla_hold_event_args *args);
 /* BLA Thread Callback Prototypes */
 static void *bla_dial_trunk(struct bla_dial_trunk_args *args);
 static void *bla_run_station(struct bla_run_station_args *args);
@@ -594,6 +603,15 @@ int bla_station_exec(struct ast_channel *chan, const char *data)
 	char conf_name[MAX_CONF_NAME];
 	char user_profile_name[MAX_PROFILE_NAME];
 	char bridge_profile_name[MAX_PROFILE_NAME];
+  /* Framehook for handling hold frames from the station */
+  struct ast_framehook_interface hold_framehook = {
+    .version = 4,
+    .consume_cb = (ast_framehook_consume_callback)bla_hold_consume_callback,
+    .event_cb = (ast_framehook_event_callback)bla_hold_event_callback,
+    .destroy_cb = NULL
+  };
+  struct bla_hold_event_args hold_event_args;
+  int hold_framehook_id;
 
 	ast_debug(3, "Entering BLAStation() application");
 
@@ -654,7 +672,7 @@ int bla_station_exec(struct ast_channel *chan, const char *data)
 	 */
 	if (trunk_ref->state == BLA_TRUNK_STATE_ONHOLD_BYME) {
 		/* FIXME: Document onhold trunks */
-		if (ast_atomic_dec_and_test((int *) &trunk_ref->trunk->hold_stations) == 1)
+		if (ast_atomic_dec_and_test((int *) &trunk_ref->trunk->hold_stations))
 			bla_change_trunk_state(trunk_ref->trunk, BLA_TRUNK_STATE_UP, ALL_TRUNK_REFS, NULL);
 		else {
 			trunk_ref->state = BLA_TRUNK_STATE_UP;
@@ -743,6 +761,12 @@ int bla_station_exec(struct ast_channel *chan, const char *data)
 	bla_station_user_profile_name(station, trunk_ref->trunk, user_profile_name);
 	bla_trunk_bridge_profile_name(trunk_ref->trunk, bridge_profile_name);
 
+  /* Add callback for hold frames from the station */
+  hold_event_args.trunk_ref = trunk_ref;
+  hold_event_args.station = station;
+  hold_framehook.data = &hold_event_args;
+  hold_framehook_id = ast_framehook_attach(chan, &hold_framehook);
+
 	/* Answer the station's channel */
 	ast_answer(chan);
 
@@ -756,7 +780,9 @@ int bla_station_exec(struct ast_channel *chan, const char *data)
 			NULL);  /* FIXME: Bridge profile here? */
 
 	/* TODO: Clean up now that we've left the conference */
+  /* NOTE: This signals the hold framehook that we're done */
 	trunk_ref->chan = NULL;
+  ast_framehook_detach(chan, hold_framehook_id);  /* NOTE: The effect of this call is asynchronous */
 	if (ast_atomic_dec_and_test((int *) &trunk_ref->trunk->active_stations) &&
 			trunk_ref->state != BLA_TRUNK_STATE_ONHOLD_BYME) {
 		/* TODO: Kick everyone from the channel? */
@@ -1277,6 +1303,7 @@ static void bla_change_trunk_state(const struct bla_trunk *trunk,
 	struct bla_trunk_ref *trunk_ref;
 	struct ao2_iterator i;
 
+  /* FIXME: change this loop to use the macros */
 	i = ao2_iterator_init(bla_stations, 0);
 	while ((station = ao2_iterator_next(&i))) {
 		ao2_lock(station);
@@ -2007,6 +2034,37 @@ static void bla_hangup_stations(void)
 	AST_LIST_TRAVERSE_SAFE_END;
 }
 
+static int bla_hold_consume_callback(
+    struct bla_station *station,
+    enum ast_frame_type type)
+{
+  if (type == AST_FRAME_CONTROL)
+    return 1;
+  return 0;
+}
+
+static struct ast_frame *bla_hold_event_callback(
+    struct ast_channel *chan,
+    struct ast_frame *frame,
+    enum ast_framehook_event event,
+    struct bla_hold_event_args *args)
+{
+  if ((event != AST_FRAMEHOOK_EVENT_READ) ||
+      (frame == NULL) ||
+      (frame->frametype != AST_FRAME_CONTROL) ||
+      (frame->subclass.integer != AST_CONTROL_HOLD))
+    return frame;
+  /* FIXME: Check that the station's channel is indeed using BLA
+   * (i.e. the channel is in a BLA conference presently.)
+   * Because ast_framehook_detach() is asynchronous, there is the risk of
+   * handling a BLA hold event after the station channel has moved past the
+   * BLAStation() or BLATrunk() application in the dialplan. */
+  bla_queue_event_full(BLA_EVENT_HOLD, args->trunk_ref, args->station, 1);
+  /* FIXME: Should we swallow the frame so the hold event cannot adversely affect the conference? */
+  /* FIXME: Should we free the frame's memory here? */
+  return frame;
+}
+
 static struct bla_ringing_trunk *bla_queue_ringing_trunk(struct bla_trunk *trunk)
 {
 	struct bla_ringing_trunk *ringing_trunk;
@@ -2206,6 +2264,10 @@ static void *bla_dial_trunk(struct bla_dial_trunk_args *args)
 	/* Actually join the conference */
 	ast_debug(1, "Joining the conference '%s' in trunk '%s' thread",
 			conf_name, trunk_ref->trunk->name);
+
+  /* FIXME: Need to signal (safely, with locks) to the hold handler that
+   * the trunk channel is *up* and working. */
+
 	/* FIXME: Do we need to check the return status of confbridge_init_and_join?
 	 * It should handle its own errors just fine... */
 	confbridge_init_and_join(trunk_ref->trunk->chan,
@@ -2290,6 +2352,7 @@ static void *bla_run_station(struct bla_run_station_args *args)
 	return NULL;
 }
 
+/* FIXME: rename bla_thread() function to something more descriptive */
 static void *bla_thread(void *data)
 {
 	struct bla_failed_station *failed_station;
@@ -2553,6 +2616,9 @@ static int bla_calc_station_delays(unsigned int *timeout)
 /* FIXME: document this */
 static void bla_handle_hold_event(struct bla_event *event)
 {
+  /* FIXME: This is a very unsafe way to communicate between these threads */
+  if (event->trunk_ref->trunk->chan == NULL)
+    return;  /* The trunk has already exited the conference; nothing to do */
 	/* FIXME: document this */
 	ast_atomic_fetchadd_int((int *) &event->trunk_ref->trunk->hold_stations, 1);
 	event->trunk_ref->state = BLA_TRUNK_STATE_ONHOLD_BYME;
@@ -2565,12 +2631,13 @@ static void bla_handle_hold_event(struct bla_event *event)
 		/* The station putting it on hold is the only one on the call, so start
 		 * Music on hold to the trunk. */
 		event->trunk_ref->trunk->on_hold = 1;
+    /* FIXME: Segfault here when trunk channel has exited already. Should probably check for NULL channel here. */
 		ast_indicate(event->trunk_ref->trunk->chan, AST_CONTROL_HOLD);
 	}
 
-	/* FIXME: document this */
-	ast_softhangup(event->trunk_ref->chan, AST_SOFTHANGUP_DEV);
-	event->trunk_ref->chan = NULL;
+	/* FIXME: I'm pretty sure that the SLA meetme logic expects the station to re-originate upon un-holding the trunk, but my station does not do this. */
+/*	ast_softhangup(event->trunk_ref->chan, AST_SOFTHANGUP_DEV);
+	event->trunk_ref->chan = NULL; */
 }
 
 /* FIXME: document this */
