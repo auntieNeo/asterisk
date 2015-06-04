@@ -2306,6 +2306,15 @@ static void *bla_run_station(struct bla_run_station_args *args)
 	char conf_name[MAX_CONF_NAME];
 	char user_profile_name[MAX_PROFILE_NAME];
 	char bridge_profile_name[MAX_PROFILE_NAME];
+  /* Framehook for handling hold frames from the station */
+  struct ast_framehook_interface hold_framehook = {
+    .version = 4,
+    .consume_cb = (ast_framehook_consume_callback)bla_hold_consume_callback,
+    .event_cb = (ast_framehook_event_callback)bla_hold_event_callback,
+    .destroy_cb = NULL
+  };
+  struct bla_hold_event_args hold_event_args;
+  int hold_framehook_id;
 
 	station = args->station;
 	trunk_ref = args->trunk_ref;
@@ -2317,14 +2326,19 @@ static void *bla_run_station(struct bla_run_station_args *args)
 	ast_atomic_fetchadd_int((int *) &trunk_ref->trunk->active_stations, 1);
 
 	/* FIXME: comment this */
-  /* FIXME: I'm pretty sure this has already been called from bla_handle_dial_state_event */
-	bla_answer_trunk_chan(trunk_ref->chan);
+	bla_answer_trunk_chan(trunk_ref->chan);  /* FIXME: trunk_ref->chan is actually the station chan this time. This is a mess */
 
 	/* Find the bridge profile, user profile, and conference names */
 	/* These determine the properties of the conference we join/create */
 	bla_trunk_conference_name(trunk_ref->trunk, conf_name);
 	bla_station_user_profile_name(station, trunk_ref->trunk, user_profile_name);
 	bla_trunk_bridge_profile_name(trunk_ref->trunk, bridge_profile_name);
+
+  /* Add callback for hold frames from the station */
+  hold_event_args.trunk_ref = trunk_ref;
+  hold_event_args.station = station;
+  hold_framehook.data = &hold_event_args;
+  hold_framehook_id = ast_framehook_attach(trunk_ref->chan, &hold_framehook);
 
 	/* Actually join the conference */
 	ast_debug(3, "Joining the conference in station '%s' thread.",
@@ -2339,6 +2353,7 @@ static void *bla_run_station(struct bla_run_station_args *args)
 
 	/* Clean up now that we've exited the conference */
 	trunk_ref->chan = NULL;
+  ast_framehook_detach(trunk_ref->chan, hold_framehook_id);  /* NOTE: The effect of this call is asynchronous */
 	/* FIXME: Kick everyone from the channel here?
 	   if (ast_atomic_dec_and_test((int *) &trunk_ref->trunk->active_stations) &&
 	   trunk_ref->state != SLA_TRUNK_STATE_ONHOLD_BYME) {
