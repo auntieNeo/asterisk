@@ -1444,7 +1444,7 @@ static void bla_queue_event_full(enum bla_event_type type, struct bla_trunk_ref 
 	struct bla_event *event;
 
 	/* Don't queue up events if the thread isn't running */
-	if (bla.thread == AST_PTHREADT_NULL) {
+	if (bla.thread == AST_PTHREADT_NULL) {  /* FIXME: This thread communication cannot be safe */
 		/* FIXME: For whom are we freeing these references? Hmm... */
 		ao2_ref(station, -1);
 		ao2_ref(trunk_ref, -1);
@@ -1458,6 +1458,10 @@ static void bla_queue_event_full(enum bla_event_type type, struct bla_trunk_ref 
 		return;
 	}
 
+  if (station != NULL)
+    ao2_ref(station, 1);
+  if (trunk_ref != NULL)
+    ao2_ref(trunk_ref, 1);
 	event->type = type;
 	event->trunk_ref = trunk_ref;
 	event->station = station;
@@ -2617,7 +2621,7 @@ static int bla_calc_station_delays(unsigned int *timeout)
 static void bla_handle_hold_event(struct bla_event *event)
 {
   /* FIXME: This is a very unsafe way to communicate between these threads */
-  if (event->trunk_ref->trunk->chan == NULL)
+  if (event->trunk_ref->trunk->chan == NULL)  /* FIXME: event->trunk_ref doesn't have enough reference counts, so it gets destroyed inside bla_thread */
     return;  /* The trunk has already exited the conference; nothing to do */
 	/* FIXME: document this */
 	ast_atomic_fetchadd_int((int *) &event->trunk_ref->trunk->hold_stations, 1);
