@@ -44,7 +44,7 @@
 /* TODO:
  * [X] Implement BLA event processing thread
  * [X] Implement ringing stations
- * [ ] Implement autocontext and friends
+ * [X] Implement autocontext and friends
  * [ ] Implement (or don't implement) reloading
  * [X] Implement bla cli
  *   [X] Implement bla_show_stations()
@@ -60,181 +60,16 @@
 /* BLA Application Strings */
 const char bla_station_app[] = "BLAStation";
 const char bla_trunk_app[] = "BLATrunk";
+const char bla_registrar[] = "BLA";
 
-/* BLA enums */
-enum bla_hold_access {
-	/*! This means that any station can put it on hold, and any station
-	 * can retrieve the call from hold. */
-	BLA_HOLD_OPEN,
-	/*! This means that only the station that put the call on hold may
-	 * retrieve it from hold. */
-	BLA_HOLD_PRIVATE,
-};
-
-/*! \brief Event types that can be queued up for the BLA thread */
-enum bla_event_type {
-	/*! A station has put the call on hold */
-	BLA_EVENT_HOLD,
-	/*! The state of a dial has changed */
-	BLA_EVENT_DIAL_STATE,
-	/*! The state of a ringing trunk has changed */
-	BLA_EVENT_RINGING_TRUNK,
-};
-
-struct bla_event {
-	enum bla_event_type type;
-	struct bla_station *station;
-	struct bla_trunk_ref *trunk_ref;
-	AST_LIST_ENTRY(bla_event) entry;
-};
-
-enum bla_trunk_state {
-	BLA_TRUNK_STATE_IDLE,
-	BLA_TRUNK_STATE_RINGING,
-	BLA_TRUNK_STATE_UP,
-	BLA_TRUNK_STATE_ONHOLD,
-	BLA_TRUNK_STATE_ONHOLD_BYME,
-};
-
-enum bla_which_trunk_refs {
-	ALL_TRUNK_REFS,
-	INACTIVE_TRUNK_REFS,
-};
-
-enum bla_station_hangup {
-	BLA_STATION_HANGUP_NORMAL,
-	BLA_STATION_HANGUP_TIMEOUT,
-};
-
-/* BLA internal structures */
-struct bla_station_ref;
-
-struct bla_trunk {
-	AST_DECLARE_STRING_FIELDS(
-			AST_STRING_FIELD(name);
-			AST_STRING_FIELD(device);
-			AST_STRING_FIELD(autocontext);	
-			AST_STRING_FIELD(user_profile);
-			AST_STRING_FIELD(bridge_profile);
-			);
-	AST_LIST_HEAD_NOLOCK(, bla_station_ref) stations;
-	/*! Number of stations that use this trunk */
-	unsigned int num_stations;
-	/*! Number of stations currently on a call with this trunk */
-	unsigned int active_stations;
-	/*! Number of stations that have this trunk on hold. */
-	unsigned int hold_stations;
-	struct ast_channel *chan;
-	unsigned int ring_timeout;
-	/*! If set to 1, no station will be able to join an active call with
-	 *  this trunk. */
-	unsigned int barge_disabled:1;
-	/*! This option uses the values in the bla_hold_access enum and sets the
-	 * access control type for hold on this trunk. */
-	unsigned int hold_access:1;
-	/*! Whether this trunk is currently on hold, meaning that once a station
-	 *  connects to it, the trunk channel needs to have UNHOLD indicated to it. */
-	unsigned int on_hold:1;
-	/*! Mark used during reload processing */
-	unsigned int mark:1;
-	/*! The Bridge Configuration Profile for this trunk */
-	struct bridge_profile b_profile;
-};
-
-/*!
- * \brief A station's reference to a trunk
- *
- * An bla_station keeps a list of trunk_refs.  This holds metadata about the
- * stations usage of the trunk.
- */
-struct bla_trunk_ref {
-	AST_LIST_ENTRY(bla_trunk_ref) entry;
-	struct bla_trunk *trunk;
-	enum bla_trunk_state state;
-	struct ast_channel *chan;  /* FIXME: I am not sure why this is used and not trunk->chan. Must document better. */
-	/*! Ring timeout to use when this trunk is ringing on this specific
-	 *  station.  This takes higher priority than a ring timeout set at
-	 *  the station level. */
-	unsigned int ring_timeout;
-	/*! Ring delay to use when this trunk is ringing on this specific
-	 *  station.  This takes higher priority than a ring delay set at
-	 *  the station level. */
-	unsigned int ring_delay;
-	/*! Mark used during reload processing */
-	unsigned int mark:1;
-};
-
-/*! \brief A trunk that is ringing */
-struct bla_ringing_trunk {
-	struct bla_trunk *trunk;
-	/*! The time that this trunk started ringing */
-	struct timeval ring_begin;
-	AST_LIST_HEAD_NOLOCK(, bla_station_ref) timed_out_stations;
-	AST_LIST_ENTRY(bla_ringing_trunk) entry;
-};
-
-struct bla_station {
-	AST_RWLIST_ENTRY(bla_station) entry;
-	AST_DECLARE_STRING_FIELDS(
-			AST_STRING_FIELD(name);	
-			AST_STRING_FIELD(device);	
-			AST_STRING_FIELD(autocontext);	
-			AST_STRING_FIELD(user_profile);
-			);
-	AST_LIST_HEAD_NOLOCK(, bla_trunk_ref) trunks;
-	struct ast_dial *dial;
-	/*! Ring timeout for this station, for any trunk.  If a ring timeout
-	 *  is set for a specific trunk on this station, that will take
-	 *  priority over this value. */
-	unsigned int ring_timeout;
-	/*! Ring delay for this station, for any trunk.  If a ring delay
-	 *  is set for a specific trunk on this station, that will take
-	 *  priority over this value. */
-	unsigned int ring_delay;
-	/*! This option uses the values in the bla_hold_access enum and sets the
-	 * access control type for hold on this station. */
-	unsigned int hold_access:1;
-	/*! Mark used during reload processing */
-	unsigned int mark:1;
-	/*! User Configuration Profile for this station */
-	struct user_profile u_profile;
-};
-
-/*!
- * \brief A reference to a station
- *
- * This struct looks near useless at first glance.  However, its existence
- * in the list of stations in bla_trunk means that this station references
- * that trunk.  We use the mark to keep track of whether it needs to be
- * removed from the bla_trunk's list of stations during a reload.
- */
-struct bla_station_ref {
-	AST_LIST_ENTRY(bla_station_ref) entry;
-	struct bla_station *station;
-	/*! Mark used during reload processing */
-	unsigned int mark:1;
-};
-
-/*! \brief A station that is ringing */
-struct bla_ringing_station {
-	struct bla_station *station;
-	/*! The time that this station started ringing */
-	struct timeval ring_begin;
-	AST_LIST_ENTRY(bla_ringing_station) entry;
-};
-
-/*! \brief A station that failed to be dialed 
- * \note Only used by the BLA thread. */
-struct bla_failed_station {
-	struct bla_station *station;
-	struct timeval last_try;
-	AST_LIST_ENTRY(bla_failed_station) entry;
-};
+/* BLA variables */
+static struct ao2_container *bla_stations;
+static struct ao2_container *bla_trunks;
 
 /*!
  * \brief A structure for data used by the bla thread
  */
-static struct {
+struct {
 	pthread_t thread;
 	ast_cond_t cond;
 	ast_mutex_t lock;
@@ -250,120 +85,6 @@ static struct {
 } bla = {
 	.thread = AST_PTHREADT_NULL,
 };
-
-struct bla_dial_trunk_args {
-	struct bla_trunk_ref *trunk_ref;
-	struct bla_station *station;
-	ast_mutex_t *cond_lock;
-	ast_cond_t *cond;
-};
-
-struct bla_run_station_args {
-	struct bla_station *station;
-	struct bla_trunk_ref *trunk_ref;
-	ast_mutex_t *cond_lock;
-	ast_cond_t *cond;
-};
-
-struct bla_hold_event_args {
-	struct bla_station *station;
-	struct bla_trunk_ref *trunk_ref;
-};
-
-/* BLA variables */
-static struct ao2_container *bla_stations;
-static struct ao2_container *bla_trunks;
-
-static const char bla_registrar[] = "BLA";
-
-/* Static BLA Function Prototypes */
-static int bla_build_trunk(struct ast_config *cfg, const char *cat);
-static int bla_build_station(struct ast_config *cfg, const char *cat);
-/* BLA trunk methods */
-static int bla_trunk_create(void);
-static void bla_trunk_destroy(struct bla_trunk *self);
-static int bla_trunk_release_refs(struct bla_trunk *self, void *arg, int flags);
-static int bla_trunk_hash(const struct bla_trunk *self, const int flags);
-static int bla_trunk_cmp(const struct bla_trunk *self, const struct bla_trunk *arg, int flags);
-/* BLA trunk_ref methods */
-static struct bla_trunk_ref *bla_trunk_ref_create(struct bla_trunk *trunk);
-static void bla_trunk_ref_destroy(struct bla_trunk_ref *self);
-/* BLA station methods */
-static int bla_station_create(void);
-static void bla_station_destroy(struct bla_station *self);
-static int bla_station_release_refs(struct bla_station *self, void *arg, int flags);
-static int bla_station_hash(const struct bla_station *self, const int flags);
-static int bla_station_cmp(const struct bla_station *self, const struct bla_station *arg, int flags);
-/* BLA station_ref methods */
-static struct bla_station_ref *bla_station_ref_create(struct bla_station *station);
-static void bla_station_ref_destroy(struct bla_station_ref *self);
-/* BLA helper functions */
-/* TODO: Many of these "helper" functions could be class methods. Need to move these to a better object model. */
-/* FIXME: I think I got these all out of order. Oh well. */
-int bla_in_use(void);
-static enum ast_device_state bla_state_to_devstate(enum bla_trunk_state state);
-static int bla_check_device(const char *dev);
-static int bla_check_station_hold_access(const struct bla_trunk *trunk, const struct bla_station *station);
-static struct bla_ringing_trunk *bla_queue_ringing_trunk(struct bla_trunk *trunk);
-static struct bla_station *bla_find_station(const char *name);
-static struct bla_trunk *bla_find_trunk(const char *name);
-static struct bla_trunk_ref *bla_choose_idle_trunk(struct bla_station *station);
-static struct bla_trunk_ref *bla_find_trunk_ref_byname(const struct bla_station *station, const char *name);
-static void bla_add_trunk_to_station(struct bla_station *self, struct ast_variable *var);
-static void bla_change_trunk_state(const struct bla_trunk *trunk, enum bla_trunk_state state, enum bla_which_trunk_refs inactive_only, const struct bla_trunk_ref *exclude);
-static void bla_queue_event(enum bla_event_type type);
-static void bla_queue_event_full(enum bla_event_type type, struct bla_trunk_ref *trunk_ref, struct bla_station *station, int lock);
-static void bla_queue_event_nolock(enum bla_event_type type);
-static void bla_answer_trunk_chan(struct ast_channel *chan);
-static void bla_ring_stations(void);
-static int bla_check_inuse_station(const struct bla_station *station);
-static int bla_check_failed_station(const struct bla_station *station);
-static int bla_check_ringing_station(const struct bla_station *station);
-static int bla_check_timed_out_station(const struct bla_ringing_trunk *ringing_trunk, const struct bla_station *station);
-static int bla_check_station_delay(struct bla_station *station, struct bla_ringing_trunk *ringing_trunk);
-static int bla_ring_station(struct bla_ringing_trunk *ringing_trunk, struct bla_station *station);
-static struct bla_failed_station *bla_create_failed_station(struct bla_station *station);
-static void bla_failed_station_destroy(struct bla_failed_station *failed_station);
-static struct bla_ringing_trunk *bla_choose_ringing_trunk(struct bla_station *station, struct bla_trunk_ref **trunk_ref, int rm);
-static struct bla_trunk_ref *bla_find_trunk_ref(const struct bla_station *station, const struct bla_trunk *trunk);
-static void bla_dial_state_callback(struct ast_dial *dial);
-static struct bla_ringing_station *bla_create_ringing_station(struct bla_station *station);
-static void bla_ringing_station_destroy(struct bla_ringing_station *ringing_station);
-static void bla_event_destroy(struct bla_event *event);
-static void bla_stop_ringing_trunk(struct bla_ringing_trunk *ringing_trunk);
-static void bla_ringing_trunk_destroy(struct bla_ringing_trunk *ringing_trunk);
-static void bla_stop_ringing_station(struct bla_ringing_station *ringing_station, enum bla_station_hangup hangup);
-static struct bla_station_ref *bla_create_station_ref(struct bla_station *station);
-static void bla_station_ref_destructor(struct bla_station_ref *station_ref);
-static void bla_station_user_profile_name(const struct bla_station *station, const struct bla_trunk *trunk, char *user_profile_name);
-static void bla_trunk_user_profile_name(const struct bla_trunk *trunk, char *user_profile_name);
-static void bla_trunk_bridge_profile_name(const struct bla_trunk *trunk, char *bridge_profile_name);
-static void bla_trunk_conference_name(const struct bla_trunk *trunk, char *conference_name);
-static void bla_hangup_stations(void);
-static int bla_hold_consume_callback(struct bla_station *station, enum ast_frame_type type);
-static struct ast_frame *bla_hold_event_callback(struct ast_channel *chan, struct ast_frame *frame, enum ast_framehook_event event, struct bla_hold_event_args *args);
-/* BLA Thread Callback Prototypes */
-static void *bla_dial_trunk(struct bla_dial_trunk_args *args);
-static void *bla_run_station(struct bla_run_station_args *args);
-static void *bla_thread(void *data);
-/* BLA Event Function Prototypes */
-static int bla_process_timers(struct timespec *ts);
-static int bla_calc_trunk_timeouts(unsigned int *timeout);
-static int bla_calc_station_timeouts(unsigned int *timeout);
-static int bla_calc_station_delays(unsigned int *timeout);
-static void bla_handle_hold_event(struct bla_event *event);
-static void bla_handle_dial_state_event(void);
-static void bla_handle_ringing_trunk_event(void);
-/* BLA CLI Function Prototypes */
-static const char *bla_hold_access_str(enum bla_hold_access hold_access);
-static const char *bla_trunk_state_str(enum bla_trunk_state state);
-/* BLA Stasis Debugging Prototypes */
-struct stasis_message_type *bla_ringing_type(void);
-static void bla_publish_manager_event(struct stasis_message *message, const char *event, struct ast_str *extra_text);
-static void bla_publish_manager_event(struct stasis_message *message, const char *event, struct ast_str *extra_text);
-static void bla_ringing_cb(void *data, struct stasis_subscription *sub, struct stasis_message *message);
-static void bla_send_stasis(struct stasis_message_type *type, struct ast_json *extras);
-static void bla_send_ringing_ami_event(struct bla_trunk *trunk);
 
 /*!
  * \breif Load and parse the BLA config file (bla.conf)
@@ -798,7 +519,7 @@ int bla_station_exec(struct ast_channel *chan, const char *data)
 	return 0;
 }
 
-static int bla_build_trunk(struct ast_config *cfg, const char *cat)
+int bla_build_trunk(struct ast_config *cfg, const char *cat)
 {
 	RAII_VAR(struct bla_trunk *, trunk, NULL, ao2_cleanup);
 	struct ast_variable *var;
@@ -917,7 +638,7 @@ static int bla_build_trunk(struct ast_config *cfg, const char *cat)
 	return 0;
 }
 
-static int bla_build_station(struct ast_config *cfg, const char *cat)
+int bla_build_station(struct ast_config *cfg, const char *cat)
 {
 	RAII_VAR(struct bla_station *, station, NULL, ao2_cleanup);
 	struct ast_variable *var;
@@ -1043,12 +764,12 @@ static int bla_build_station(struct ast_config *cfg, const char *cat)
 }
 
 /* BLA trunk method implementations */
-static int bla_trunk_create(void)
+int bla_trunk_create(void)
 {
 	return 0;  // TODO
 }
 
-static void bla_trunk_destroy(struct bla_trunk *self)
+void bla_trunk_destroy(struct bla_trunk *self)
 {
 	ast_debug(1, "Destroying bla_trunk '%s'\n", self->name);
 
@@ -1068,7 +789,7 @@ static void bla_trunk_destroy(struct bla_trunk *self)
  * FIXME: I'm not sure why this is needed in lieu of the destructor. This
  * should be calling the destructor.
  */
-static int bla_trunk_release_refs(struct bla_trunk *self, void *arg, int flags)
+int bla_trunk_release_refs(struct bla_trunk *self, void *arg, int flags)
 {
 	struct bla_station_ref *station_ref;
 
@@ -1079,19 +800,19 @@ static int bla_trunk_release_refs(struct bla_trunk *self, void *arg, int flags)
 	return 0;
 }
 
-static int bla_trunk_hash(const struct bla_trunk *self, const int flags)
+int bla_trunk_hash(const struct bla_trunk *self, const int flags)
 {
 	return ast_str_case_hash(self->name);
 }
 
-static int bla_trunk_cmp(const struct bla_trunk *self,
+int bla_trunk_cmp(const struct bla_trunk *self,
 		const struct bla_trunk *arg, int flags)
 {
 	return !strcasecmp(self->name, arg->name) ? CMP_MATCH | CMP_STOP : 0;
 }
 
 /* BLA trunk_ref method implementations */
-static struct bla_trunk_ref *bla_trunk_ref_create(struct bla_trunk *trunk)
+struct bla_trunk_ref *bla_trunk_ref_create(struct bla_trunk *trunk)
 {
 	struct bla_trunk_ref *self;
 
@@ -1105,7 +826,7 @@ static struct bla_trunk_ref *bla_trunk_ref_create(struct bla_trunk *trunk)
 	return self;
 }
 
-static void bla_trunk_ref_destroy(struct bla_trunk_ref *self)
+void bla_trunk_ref_destroy(struct bla_trunk_ref *self)
 {
 	if (self->trunk) {
 		ao2_ref(self->trunk, -1);
@@ -1113,189 +834,7 @@ static void bla_trunk_ref_destroy(struct bla_trunk_ref *self)
 	}
 }
 
-/* BLA station method implementations */
-static int bla_station_create(void)
-{
-	return 0;  // TODO
-}
-
-static void bla_station_destroy(struct bla_station *self)
-{
-	ast_debug(1, "Destroying bla_station '%s'\n", self->name);
-
-	if (!ast_strlen_zero(self->autocontext)) {
-		struct bla_trunk_ref *trunk_ref;
-
-		AST_LIST_TRAVERSE(&self->trunks, trunk_ref, entry) {
-			char exten[AST_MAX_EXTENSION];
-			char hint[AST_MAX_APP];
-			snprintf(exten, sizeof(exten), "%s_%s", self->name, trunk_ref->trunk->name);
-			snprintf(hint, sizeof(hint), "BLA:%s", exten);
-			ast_context_remove_extension(self->autocontext, exten, 
-				1, bla_registrar);
-			ast_context_remove_extension(self->autocontext, hint, 
-				PRIORITY_HINT, bla_registrar);
-		}
-	}
-
-	bla_station_release_refs(self, NULL, 0);
-
-	ast_string_field_free_memory(self);
-}
-
-/*!
- * The arg and flags arguments are only to satisfy the function signature for
- * the ao2_callback() function.
- *
- * FIXME: I'm not sure why this is needed in lieu of the destructor. This
- * should be calling the destructor.
- */
-static int bla_station_release_refs(struct bla_station *self, void *arg, int flags)
-{
-	struct bla_trunk_ref *trunk_ref;
-
-	while ((trunk_ref = AST_LIST_REMOVE_HEAD(&self->trunks, entry))) {
-		ao2_ref(trunk_ref, -1);
-	}
-
-	return 0;
-}
-
-static int bla_station_hash(const struct bla_station *self, const int flags)
-{
-	return ast_str_case_hash(self->name);
-}
-
-static int bla_station_cmp(const struct bla_station *self,
-		const struct bla_station *arg, int flags)
-{
-	return !strcasecmp(self->name, arg->name) ? CMP_MATCH | CMP_STOP : 0;
-}
-
-/* BLA station_ref method implementations */
-static struct bla_station_ref *bla_station_ref_create(struct bla_station *station)
-{
-	struct bla_station_ref *self;
-
-	if (!(self = ao2_alloc(sizeof(*self), (ao2_destructor_fn)bla_station_ref_destroy))) {
-		return NULL;
-	}
-
-	ao2_ref(station, 1);
-	self->station = station;
-
-	return self;
-}
-
-static void bla_station_ref_destroy(struct bla_station_ref *self)
-{
-	if (self->station) {
-		ao2_ref(self->station, -1);
-		self->station = NULL;
-	}
-}
-
-/*!
- * Adds a trunk to the station.
- *
- * The var argument is a string in CSV format.
- * (FIXME: I'm not sure what the arguments are)
- */
-static void bla_add_trunk_to_station(struct bla_station *station, struct ast_variable *var)  // TODO
-{
-	RAII_VAR(struct bla_trunk *, trunk, NULL, ao2_cleanup);
-	struct bla_trunk_ref *trunk_ref = NULL;
-	struct bla_station_ref *station_ref = NULL;
-	char *trunk_name, *options, *cur;
-	int existing_trunk_ref = 0;
-	int existing_station_ref = 0;
-
-	options = ast_strdupa(var->value);
-	trunk_name = strsep(&options, ",");
-
-	trunk = bla_find_trunk(trunk_name);
-	if (!trunk) {
-		ast_log(LOG_ERROR, "Trunk '%s' not found!\n", var->value);
-		return;
-	}
-
-	/* Un-mark existing trunks to support reload logic */
-	AST_LIST_TRAVERSE(&station->trunks, trunk_ref, entry) {
-		if (trunk_ref->trunk == trunk) {
-			trunk_ref->mark = 0;
-			existing_trunk_ref = 1;
-			break;
-		}
-	}
-
-	if (!trunk_ref && !(trunk_ref = bla_trunk_ref_create(trunk))) {
-		return;  // FIXME: maybe error if we can't create a trunk ref?
-	}
-
-	trunk_ref->state = BLA_TRUNK_STATE_IDLE;
-
-	/* Iterate over station trunk options */
-	while ((cur = strsep(&options, ","))) {
-		char *name, *value = cur;
-		name = strsep(&value, "=");
-		if (!strcasecmp(name, "ringtimeout")) {
-			if (sscanf(value, "%30u", &trunk_ref->ring_timeout) != 1) {
-				ast_log(LOG_WARNING, "Invalid ringtimeout value '%s' for "
-						"trunk '%s' on station '%s'\n", value, trunk->name, station->name);
-				trunk_ref->ring_timeout = 0;
-			}
-		} else if (!strcasecmp(name, "ringdelay")) {
-			if (sscanf(value, "%30u", &trunk_ref->ring_delay) != 1) {
-				ast_log(LOG_WARNING, "Invalid ringdelay value '%s' for "
-						"trunk '%s' on station '%s'\n", value, trunk->name, station->name);
-				trunk_ref->ring_delay = 0;
-			}
-		} else {
-			ast_log(LOG_WARNING, "Invalid option '%s' for "
-					"trunk '%s' on station '%s'\n", name, trunk->name, station->name);
-		}
-	}
-
-	/*
-	 * Un-mark the corresponding reference to this station in the trunk
-	 * to support reloading logic.
-	 */
-	AST_LIST_TRAVERSE(&trunk->stations, station_ref, entry) {
-		if (station_ref->station == station) {
-			station_ref->mark = 0;
-			existing_station_ref = 1;
-			break;
-		}
-	}
-
-	/*
-	 * FIXME: This is confusing. Need to document how all this reference counting
-	 * works. Maybe just remove the reload logic if it's too hairy.
-	 */
-	if (!station_ref && !(station_ref = bla_station_ref_create(station))) {
-		if (!existing_trunk_ref) {
-			ao2_ref(trunk_ref, -1);
-		} else {
-			trunk_ref->mark = 1;
-		}
-		return;
-	}
-
-	if (!existing_station_ref) {
-		ao2_lock(trunk);
-		AST_LIST_INSERT_TAIL(&trunk->stations, station_ref, entry);
-		ast_atomic_fetchadd_int((int *) &trunk->num_stations, 1);
-		ao2_unlock(trunk);
-	}
-
-	if (!existing_trunk_ref) {
-		ao2_lock(station);
-		AST_LIST_INSERT_TAIL(&station->trunks, trunk_ref, entry);
-		ao2_unlock(station);
-	}
-}
-
-static void bla_change_trunk_state(const struct bla_trunk *trunk,
+void bla_change_trunk_state(const struct bla_trunk *trunk,
 		enum bla_trunk_state state, enum bla_which_trunk_refs inactive_only,
 		const struct bla_trunk_ref *exclude)
 {
@@ -1327,7 +866,7 @@ static void bla_change_trunk_state(const struct bla_trunk *trunk,
  * Returns 0 if the given string is a valid device string.
  * Returns non-zero otherwise.
  */
-static int bla_check_device(const char *dev)
+int bla_check_device(const char *dev)
 {
 	char *tech, *tech_data;
 
@@ -1340,7 +879,7 @@ static int bla_check_device(const char *dev)
 	return 0;
 }
 
-static int bla_check_station_hold_access(const struct bla_trunk *trunk,
+int bla_check_station_hold_access(const struct bla_trunk *trunk,
 		const struct bla_station *station)
 {
 	const struct bla_station_ref *station_ref;
@@ -1366,7 +905,7 @@ static int bla_check_station_hold_access(const struct bla_trunk *trunk,
  * \brief For a given station, choose the highest priority idle trunk
  * \pre bla_station is locked
  */
-static struct bla_trunk_ref *bla_choose_idle_trunk(struct bla_station *station)
+struct bla_trunk_ref *bla_choose_idle_trunk(struct bla_station *station)
 {
 	struct bla_trunk_ref *trunk_ref = NULL;
 
@@ -1384,7 +923,7 @@ static struct bla_trunk_ref *bla_choose_idle_trunk(struct bla_station *station)
  * \internal
  * \brief Find a BLA station by name
  */
-static struct bla_station *bla_find_station(const char *name)
+struct bla_station *bla_find_station(const char *name)
 {
 	struct bla_station tmp_station = {
 		.name = name,
@@ -1394,7 +933,7 @@ static struct bla_station *bla_find_station(const char *name)
 }
 
 /* FIXME: document this */
-static struct bla_trunk *bla_find_trunk(const char *name)
+struct bla_trunk *bla_find_trunk(const char *name)
 {
 	struct bla_trunk tmp_trunk = {
 		.name = name,
@@ -1404,7 +943,7 @@ static struct bla_trunk *bla_find_trunk(const char *name)
 }
 
 /* FIXME: Document this */
-static struct bla_trunk_ref *bla_find_trunk_ref_byname(const struct bla_station *station,
+struct bla_trunk_ref *bla_find_trunk_ref_byname(const struct bla_station *station,
 		const char *name)
 {
 	struct bla_trunk_ref *trunk_ref = NULL;
@@ -1434,12 +973,12 @@ static struct bla_trunk_ref *bla_find_trunk_ref_byname(const struct bla_station 
 	return trunk_ref;
 }
 
-static void bla_queue_event(enum bla_event_type type)
+void bla_queue_event(enum bla_event_type type)
 {
 	bla_queue_event_full(type, NULL, NULL, 1);
 }
 
-static void bla_queue_event_full(enum bla_event_type type, struct bla_trunk_ref *trunk_ref, struct bla_station *station, int lock)
+void bla_queue_event_full(enum bla_event_type type, struct bla_trunk_ref *trunk_ref, struct bla_station *station, int lock)
 {
 	struct bla_event *event;
 
@@ -1477,20 +1016,20 @@ static void bla_queue_event_full(enum bla_event_type type, struct bla_trunk_ref 
 	ast_mutex_unlock(&bla.lock);
 }
 
-static void bla_queue_event_nolock(enum bla_event_type type)
+void bla_queue_event_nolock(enum bla_event_type type)
 {
 	bla_queue_event_full(type, NULL, NULL, 0);
 }
 
 /* FIXME: document this */
 /* FIXME: I'm... not sure why this needs to be a function call */
-static void bla_answer_trunk_chan(struct ast_channel *chan)
+void bla_answer_trunk_chan(struct ast_channel *chan)
 {
 	ast_answer(chan);
 	ast_indicate(chan, -1);
 }
 
-static void bla_ring_stations(void)
+void bla_ring_stations(void)
 {
 	struct bla_station_ref *station_ref;
 	struct bla_ringing_trunk *ringing_trunk;
@@ -1533,7 +1072,7 @@ static void bla_ring_stations(void)
 
 /*! \brief Check to see if a station is in use
  */
-static int bla_check_inuse_station(const struct bla_station *station)
+int bla_check_inuse_station(const struct bla_station *station)
 {
 	struct bla_trunk_ref *trunk_ref;
 
@@ -1548,7 +1087,7 @@ static int bla_check_inuse_station(const struct bla_station *station)
 /*! \brief Check to see if this station has failed to be dialed in the past minute
  * \note assumes bla.lock is locked
  */
-static int bla_check_failed_station(const struct bla_station *station)
+int bla_check_failed_station(const struct bla_station *station)
 {
 	struct bla_failed_station *failed_station;
 	int res = 0;
@@ -1571,7 +1110,7 @@ static int bla_check_failed_station(const struct bla_station *station)
 /*! \brief Check to see if this station is already ringing 
  * \note Assumes bla.lock is locked 
  */
-static int bla_check_ringing_station(const struct bla_station *station)
+int bla_check_ringing_station(const struct bla_station *station)
 {
 	struct bla_ringing_station *ringing_station;
 
@@ -1586,7 +1125,7 @@ static int bla_check_ringing_station(const struct bla_station *station)
 /*! \brief Check to see if dialing this station already timed out for this ringing trunk
  * \note Assumes bla.lock is locked
  */
-static int bla_check_timed_out_station(const struct bla_ringing_trunk *ringing_trunk,
+int bla_check_timed_out_station(const struct bla_ringing_trunk *ringing_trunk,
 		const struct bla_station *station)
 {
 	struct bla_station_ref *timed_out_station;
@@ -1604,7 +1143,7 @@ static int bla_check_timed_out_station(const struct bla_ringing_trunk *ringing_t
  * \param ringing_trunk the trunk.  If NULL, the highest priority ringing trunk will be used
  * \return the number of ms left before the delay is complete, or INT_MAX if there is no delay
  */
-static int bla_check_station_delay(struct bla_station *station,
+int bla_check_station_delay(struct bla_station *station,
 		struct bla_ringing_trunk *ringing_trunk)
 {
 	RAII_VAR(struct bla_trunk_ref *, trunk_ref, NULL, ao2_cleanup);
@@ -1637,7 +1176,7 @@ static int bla_check_station_delay(struct bla_station *station,
 /*! \brief Ring a station
  * \note Assumes bla.lock is locked
  */
-static int bla_ring_station(struct bla_ringing_trunk *ringing_trunk, struct bla_station *station)
+int bla_ring_station(struct bla_ringing_trunk *ringing_trunk, struct bla_station *station)
 {
 	char *tech, *tech_data;
 	struct ast_dial *dial;
@@ -1700,7 +1239,7 @@ static int bla_ring_station(struct bla_ringing_trunk *ringing_trunk, struct bla_
 	return 0;
 }
 
-static struct bla_failed_station *bla_create_failed_station(struct bla_station *station)
+struct bla_failed_station *bla_create_failed_station(struct bla_station *station)
 {
 	struct bla_failed_station *failed_station;
 
@@ -1715,7 +1254,7 @@ static struct bla_failed_station *bla_create_failed_station(struct bla_station *
 	return failed_station;
 }
 
-static void bla_failed_station_destroy(struct bla_failed_station *failed_station)
+void bla_failed_station_destroy(struct bla_failed_station *failed_station)
 {
 	if (failed_station->station) {
 		ao2_ref(failed_station->station, -1);
@@ -1733,7 +1272,7 @@ static void bla_failed_station_destroy(struct bla_failed_station *failed_station
  * \return a pointer to the selected ringing trunk, or NULL if none found
  * \note Assumes that bla.lock is locked
  */
-static struct bla_ringing_trunk *bla_choose_ringing_trunk(struct bla_station *station, struct bla_trunk_ref **trunk_ref, int rm)
+struct bla_ringing_trunk *bla_choose_ringing_trunk(struct bla_station *station, struct bla_trunk_ref **trunk_ref, int rm)
 {
 	struct bla_trunk_ref *s_trunk_ref;
 	struct bla_ringing_trunk *ringing_trunk = NULL;
@@ -1770,7 +1309,7 @@ static struct bla_ringing_trunk *bla_choose_ringing_trunk(struct bla_station *st
 	return ringing_trunk;
 }
 
-static struct bla_trunk_ref *bla_find_trunk_ref(const struct bla_station *station,
+struct bla_trunk_ref *bla_find_trunk_ref(const struct bla_station *station,
 		const struct bla_trunk *trunk)
 {
 	struct bla_trunk_ref *trunk_ref = NULL;
@@ -1785,12 +1324,12 @@ static struct bla_trunk_ref *bla_find_trunk_ref(const struct bla_station *statio
 	return trunk_ref;
 }
 
-static void bla_dial_state_callback(struct ast_dial *dial)
+void bla_dial_state_callback(struct ast_dial *dial)
 {
 	bla_queue_event(BLA_EVENT_DIAL_STATE);
 }
 
-static struct bla_ringing_station *bla_create_ringing_station(struct bla_station *station)
+struct bla_ringing_station *bla_create_ringing_station(struct bla_station *station)
 {
 	struct bla_ringing_station *ringing_station;
 
@@ -1804,7 +1343,7 @@ static struct bla_ringing_station *bla_create_ringing_station(struct bla_station
 	return ringing_station;
 }
 
-static void bla_ringing_station_destroy(struct bla_ringing_station *ringing_station)
+void bla_ringing_station_destroy(struct bla_ringing_station *ringing_station)
 {
 	if (ringing_station->station) {
 		ao2_ref(ringing_station->station, -1);
@@ -1814,7 +1353,7 @@ static void bla_ringing_station_destroy(struct bla_ringing_station *ringing_stat
 	ast_free(ringing_station);
 }
 
-static void bla_event_destroy(struct bla_event *event)
+void bla_event_destroy(struct bla_event *event)
 {
 	if (event->trunk_ref) {
 		ao2_ref(event->trunk_ref, -1);
@@ -1829,7 +1368,7 @@ static void bla_event_destroy(struct bla_event *event)
 	ast_free(event);
 }
 
-static void bla_stop_ringing_trunk(struct bla_ringing_trunk *ringing_trunk)
+void bla_stop_ringing_trunk(struct bla_ringing_trunk *ringing_trunk)
 {
 	//	char buf[80];
 	struct bla_station_ref *station_ref;
@@ -1849,7 +1388,7 @@ static void bla_stop_ringing_trunk(struct bla_ringing_trunk *ringing_trunk)
 	bla_ringing_trunk_destroy(ringing_trunk);
 }
 
-static void bla_ringing_trunk_destroy(struct bla_ringing_trunk *ringing_trunk)
+void bla_ringing_trunk_destroy(struct bla_ringing_trunk *ringing_trunk)
 {
 	if (ringing_trunk->trunk) {
 		ao2_ref(ringing_trunk->trunk, -1);
@@ -1859,7 +1398,7 @@ static void bla_ringing_trunk_destroy(struct bla_ringing_trunk *ringing_trunk)
 	ast_free(ringing_trunk);
 }
 
-static void bla_stop_ringing_station(struct bla_ringing_station *ringing_station,
+void bla_stop_ringing_station(struct bla_ringing_station *ringing_station,
 		enum bla_station_hangup hangup)
 {
 	struct bla_ringing_trunk *ringing_trunk;
@@ -1896,7 +1435,7 @@ done:
 	bla_ringing_station_destroy(ringing_station);
 }
 
-static struct bla_station_ref *bla_create_station_ref(struct bla_station *station)
+struct bla_station_ref *bla_create_station_ref(struct bla_station *station)
 {
 	struct bla_station_ref *station_ref;
 
@@ -1910,7 +1449,7 @@ static struct bla_station_ref *bla_create_station_ref(struct bla_station *statio
 	return station_ref;
 }
 
-static void bla_station_ref_destructor(struct bla_station_ref *station_ref)
+void bla_station_ref_destructor(struct bla_station_ref *station_ref)
 {
 	if (station_ref->station) {
 		ao2_ref(station_ref->station, -1);
@@ -1931,7 +1470,7 @@ static void bla_station_ref_destructor(struct bla_station_ref *station_ref)
  * \sa confbridge_init_and_join()
  */
 /* FIXME: get rid of the trunk parameter */
-static void bla_station_user_profile_name(const struct bla_station *station, const struct bla_trunk *trunk, char *user_profile_name)
+void bla_station_user_profile_name(const struct bla_station *station, const struct bla_trunk *trunk, char *user_profile_name)
 {
 	/* Determine the user profile for this station */
 	/* When determining the user profile for a station, the
@@ -1955,7 +1494,7 @@ static void bla_station_user_profile_name(const struct bla_station *station, con
  *
  * \sa confbridge_init_and_join()
  */
-static void bla_trunk_user_profile_name(const struct bla_trunk *trunk, char *user_profile_name)
+void bla_trunk_user_profile_name(const struct bla_trunk *trunk, char *user_profile_name)
 {
 	/* Determine the user profile for this trunk */
 	/* When determining the user profile for a trunk, the
@@ -1979,7 +1518,7 @@ static void bla_trunk_user_profile_name(const struct bla_trunk *trunk, char *use
  *
  * \sa confbridge_init_and_join()
  */
-static void bla_trunk_bridge_profile_name(const struct bla_trunk *trunk, char *bridge_profile_name)
+void bla_trunk_bridge_profile_name(const struct bla_trunk *trunk, char *bridge_profile_name)
 {
 	/* Determine the bridge profile for this trunk */
 	/* When determining the bridge profile for a trunk, the
@@ -2003,13 +1542,13 @@ static void bla_trunk_bridge_profile_name(const struct bla_trunk *trunk, char *b
  *
  * \sa confbridge_init_and_join()
  */
-static void bla_trunk_conference_name(const struct bla_trunk *trunk, char *conference_name)
+void bla_trunk_conference_name(const struct bla_trunk *trunk, char *conference_name)
 {
 	snprintf(conference_name, MAX_CONF_NAME, "BLA_%s", trunk->name);
 }
 
 /* FIXME: document this */
-static void bla_hangup_stations(void)
+void bla_hangup_stations(void)
 {
 	struct bla_trunk_ref *trunk_ref;
 	struct bla_ringing_station *ringing_station;
@@ -2038,7 +1577,7 @@ static void bla_hangup_stations(void)
 	AST_LIST_TRAVERSE_SAFE_END;
 }
 
-static int bla_hold_consume_callback(
+int bla_hold_consume_callback(
     struct bla_station *station,
     enum ast_frame_type type)
 {
@@ -2047,7 +1586,7 @@ static int bla_hold_consume_callback(
   return 0;
 }
 
-static struct ast_frame *bla_hold_event_callback(
+struct ast_frame *bla_hold_event_callback(
     struct ast_channel *chan,
     struct ast_frame *frame,
     enum ast_framehook_event event,
@@ -2069,7 +1608,7 @@ static struct ast_frame *bla_hold_event_callback(
   return frame;
 }
 
-static struct bla_ringing_trunk *bla_queue_ringing_trunk(struct bla_trunk *trunk)
+struct bla_ringing_trunk *bla_queue_ringing_trunk(struct bla_trunk *trunk)
 {
 	struct bla_ringing_trunk *ringing_trunk;
 
@@ -2102,7 +1641,7 @@ int bla_in_use(void)
 	return ao2_container_count(bla_trunks) || ao2_container_count(bla_stations);
 }
 
-static enum ast_device_state bla_state_to_devstate(enum bla_trunk_state state)
+enum ast_device_state bla_state_to_devstate(enum bla_trunk_state state)
 {
 	switch (state) {
 		case BLA_TRUNK_STATE_IDLE:
@@ -2119,7 +1658,7 @@ static enum ast_device_state bla_state_to_devstate(enum bla_trunk_state state)
 	return AST_DEVICE_UNKNOWN;
 }
 
-static void *bla_dial_trunk(struct bla_dial_trunk_args *args)
+void *bla_dial_trunk(struct bla_dial_trunk_args *args)
 {
 	struct ast_dial *dial;
 	char *tech, *tech_data;
@@ -2298,7 +1837,7 @@ static void *bla_dial_trunk(struct bla_dial_trunk_args *args)
 }
 
 /* FIXME: document this */
-static void *bla_run_station(struct bla_run_station_args *args)
+void *bla_run_station(struct bla_run_station_args *args)
 {
 	RAII_VAR(struct bla_station *, station, NULL, ao2_cleanup);
 	RAII_VAR(struct bla_trunk_ref *, trunk_ref, NULL, ao2_cleanup);
@@ -2372,7 +1911,7 @@ static void *bla_run_station(struct bla_run_station_args *args)
 }
 
 /* FIXME: rename bla_thread() function to something more descriptive */
-static void *bla_thread(void *data)
+void *bla_thread(void *data)
 {
 	struct bla_failed_station *failed_station;
 	struct bla_ringing_station *ringing_station;
@@ -2437,7 +1976,7 @@ static void *bla_thread(void *data)
 
 /*! \brief Calculate the time until the next known event
  *  \note Called with sla.lock locked */
-static int bla_process_timers(struct timespec *ts)
+int bla_process_timers(struct timespec *ts)
 {
 	unsigned int timeout = UINT_MAX;
 	struct timeval wait;
@@ -2476,7 +2015,7 @@ static int bla_process_timers(struct timespec *ts)
  * \note Called with bla.lock locked
  * \return non-zero if a change to the ringing trunks was made
  */
-static int bla_calc_trunk_timeouts(unsigned int *timeout)
+int bla_calc_trunk_timeouts(unsigned int *timeout)
 {
 	struct bla_ringing_trunk *ringing_trunk;
 	int res = 0;
@@ -2506,7 +2045,7 @@ static int bla_calc_trunk_timeouts(unsigned int *timeout)
  * \note Called with bla.lock locked
  * \return non-zero if a change to the ringing stations was made
  */
-static int bla_calc_station_timeouts(unsigned int *timeout)
+int bla_calc_station_timeouts(unsigned int *timeout)
 {
 	struct bla_ringing_trunk *ringing_trunk;
 	struct bla_ringing_station *ringing_station;
@@ -2589,7 +2128,7 @@ static int bla_calc_station_timeouts(unsigned int *timeout)
 /*! \brief Calculate the ring delay for a station
  * \note Assumes bla.lock is locked
  */
-static int bla_calc_station_delays(unsigned int *timeout)
+int bla_calc_station_delays(unsigned int *timeout)
 {
 	struct bla_station *station;
 	int res = 0;
@@ -2633,7 +2172,7 @@ static int bla_calc_station_delays(unsigned int *timeout)
 }
 
 /* FIXME: document this */
-static void bla_handle_hold_event(struct bla_event *event)
+void bla_handle_hold_event(struct bla_event *event)
 {
   /* FIXME: This is a very unsafe way to communicate between these threads */
   if (event->trunk_ref->trunk->chan == NULL)  /* FIXME: event->trunk_ref doesn't have enough reference counts, so it gets destroyed inside bla_thread */
@@ -2660,7 +2199,7 @@ static void bla_handle_hold_event(struct bla_event *event)
 }
 
 /* FIXME: document this */
-static void bla_handle_dial_state_event(void)
+void bla_handle_dial_state_event(void)
 {
 	struct bla_ringing_station *ringing_station;
 
@@ -2743,7 +2282,7 @@ static void bla_handle_dial_state_event(void)
 	AST_LIST_TRAVERSE_SAFE_END;
 }
 
-static void bla_handle_ringing_trunk_event(void)
+void bla_handle_ringing_trunk_event(void)
 {
 	ast_mutex_lock(&bla.lock);
 	bla_ring_stations();
@@ -2904,7 +2443,7 @@ char *bla_show_trunks(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 	return CLI_SUCCESS;
 }
 
-static const char *bla_hold_access_str(enum bla_hold_access hold_access)
+const char *bla_hold_access_str(enum bla_hold_access hold_access)
 {
 	const char *hold = "Unknown";
 
@@ -2921,7 +2460,7 @@ static const char *bla_hold_access_str(enum bla_hold_access hold_access)
 	return hold;
 }
 
-static const char *bla_trunk_state_str(enum bla_trunk_state state)
+const char *bla_trunk_state_str(enum bla_trunk_state state)
 {
 #define S(e) case e: return #e
 	switch (state) {
@@ -3032,7 +2571,7 @@ void bla_stasis_shutdown(void)
  * associated with a Conference, and they are often associated with a BLA
  * station, a BLA trunk, or both.
  */
-static void bla_publish_manager_event(
+void bla_publish_manager_event(
 		struct stasis_message *message,
 		const char *event,
 		struct ast_str *extra_text)
@@ -3045,7 +2584,7 @@ static void bla_publish_manager_event(
 	manager_event(EVENT_FLAG_CALL, event, "Something: %s\r\n", "FIXME");
 }
 
-static void bla_ringing_cb(void *data, struct stasis_subscription *sub,
+void bla_ringing_cb(void *data, struct stasis_subscription *sub,
 		struct stasis_message *message)
 {
 	/*
@@ -3066,7 +2605,7 @@ static void bla_ringing_cb(void *data, struct stasis_subscription *sub,
  * happen outside the context of any conference (e.g. when a trunk rings,
  * before a conference is even created).
  */
-static void bla_send_stasis(struct stasis_message_type *type, struct ast_json *extras)
+void bla_send_stasis(struct stasis_message_type *type, struct ast_json *extras)
 {
 	RAII_VAR(struct stasis_message *, msg, NULL, ao2_cleanup);
 	RAII_VAR(struct ast_json *, json_object, NULL, ast_json_unref);
@@ -3093,7 +2632,7 @@ static void bla_send_stasis(struct stasis_message_type *type, struct ast_json *e
 	stasis_publish(ast_bridge_topic_all(), msg);
 }
 
-static void bla_send_ringing_ami_event(struct bla_trunk *trunk)
+void bla_send_ringing_ami_event(struct bla_trunk *trunk)
 {
 	/*
 	struct ast_json *json_object;
