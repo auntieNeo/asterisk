@@ -65,26 +65,7 @@ const char bla_registrar[] = "BLA";
 /* BLA variables */
 static struct ao2_container *bla_stations;
 static struct ao2_container *bla_trunks;
-
-/*!
- * \brief A structure for data used by the bla thread
- */
-struct {
-	pthread_t thread;
-	ast_cond_t cond;
-	ast_mutex_t lock;
-	AST_LIST_HEAD_NOLOCK(, bla_ringing_trunk) ringing_trunks;
-	AST_LIST_HEAD_NOLOCK(, bla_ringing_station) ringing_stations;
-	AST_LIST_HEAD_NOLOCK(, bla_failed_station) failed_stations;
-	AST_LIST_HEAD_NOLOCK(, bla_event) event_q;
-	unsigned int stop:1;
-	/*! Attempt to handle CallerID, even though it is known not to work
-	 *  properly in some situations. */
-	/* FIXME: Caller id should be enabled by default */
-	unsigned int attempt_callerid:1;
-} bla = {
-	.thread = AST_PTHREADT_NULL,
-};
+static struct bla_event_thread event_thread;
 
 /*!
  * \breif Load and parse the BLA config file (bla.conf)
@@ -99,13 +80,8 @@ int bla_load_config(int reload)
 	const char *cat = NULL;
 	int res = 0;
 
-	ast_debug(1, "DELETEME: nix is working");
-
 	if (!reload) {
-		/* Initialize the bla structure */
-		/* FIXME: Initialization of bla should happen in a constructor function */
-		ast_mutex_init(&bla.lock);
-		ast_cond_init(&bla.cond, NULL);
+		bla_event_thread_create(&event_thread);
 		/* TODO: Add typedefs here for readability */
 		bla_trunks = ao2_container_alloc(1, (int (*)(const void *, int))bla_trunk_hash, (int (*)(void *, void*, int))bla_trunk_cmp);
 		bla_stations = ao2_container_alloc(1, (int (*)(const void *, int))bla_station_hash, (int (*)(void *, void*, int))bla_station_cmp);
@@ -118,10 +94,6 @@ int bla_load_config(int reload)
 	} else if (cfg == CONFIG_STATUS_FILEINVALID) {
 		ast_log(LOG_ERROR, "Config file " BLA_CONFIG_FILE " is in an invalid format.  Aborting.\n");
 		return 1;
-	}
-
-	if (reload) {
-		// TODO: mark the trunks and stations for deletion in a callback
 	}
 
 	// TODO: check for "attemptcallerid" setting
@@ -148,13 +120,8 @@ int bla_load_config(int reload)
 
 	ast_config_destroy(cfg);
 
-	if (reload) {
-		// TODO: check that trunks/stations are still marked... if so, delete them?
-	}
-
 	/* Start BLA event processing thread now that everything has been configured */
 	if (bla.thread == AST_PTHREADT_NULL && bla_in_use()) {
-		ast_pthread_create(&bla.thread, NULL, bla_thread, NULL);
 	}
 
 	return res;
@@ -1132,11 +1099,13 @@ int bla_ring_station(struct bla_ringing_trunk *ringing_trunk, struct bla_station
 	/* FIXME: Caller ID support should be default */
 	/* Do we need to save off the caller ID data? */
 	caller_is_saved = 0;
+	/*
 	if (!bla.attempt_callerid) {
 		caller_is_saved = 1;
 		caller = *ast_channel_caller(ringing_trunk->trunk->chan);
 		ast_party_caller_init(ast_channel_caller(ringing_trunk->trunk->chan));
 	}
+	*/
 
 	res = ast_dial_run(dial, ringing_trunk->trunk->chan, 1);
 
@@ -1537,31 +1506,6 @@ struct ast_frame *bla_hold_event_callback(
   return frame;
 }
 
-struct bla_ringing_trunk *bla_queue_ringing_trunk(struct bla_trunk *trunk)
-{
-	struct bla_ringing_trunk *ringing_trunk;
-
-	if (!(ringing_trunk = ast_calloc(1, sizeof(*ringing_trunk)))) {
-		return NULL;
-	}
-
-	bla_send_ringing_ami_event(trunk);
-
-	ao2_ref(trunk, 1);
-	ringing_trunk->trunk = trunk;
-	ringing_trunk->ring_begin = ast_tvnow();
-
-	bla_change_trunk_state(trunk, BLA_TRUNK_STATE_RINGING, ALL_TRUNK_REFS, NULL);
-
-	ast_mutex_lock(&bla.lock);
-	AST_LIST_INSERT_HEAD(&bla.ringing_trunks, ringing_trunk, entry);
-	ast_mutex_unlock(&bla.lock);
-
-	bla_queue_event(BLA_EVENT_RINGING_TRUNK);
-
-	return ringing_trunk;
-}
-
 /*
  * \breif Returns a non-zero value when BLA is being used.
  */
@@ -1628,12 +1572,14 @@ void *bla_dial_trunk(struct bla_dial_trunk_args *args)
 
 	/* Do we need to save the caller ID data? */
 	caller_is_saved = 0;
-	if (!bla.attempt_callerid) {  /* FIXME: Get rid of the callerid conditional */
+	/* FIXME: Get rid of the callerid conditional */
+	/*
+	if (!bla.attempt_callerid) {
 		caller_is_saved = 1;
 		caller = *ast_channel_caller(trunk_ref->chan);
 		ast_party_caller_init(ast_channel_caller(trunk_ref->chan));
 	}
-
+	*/
 
 	ast_debug(3, "Dialing '%s/%s' for channel '%s'",
 			tech, tech_data, ast_channel_name(trunk_ref->chan));
@@ -1837,388 +1783,6 @@ void *bla_run_station(struct bla_run_station_args *args)
 	station->dial = NULL;
 
 	return NULL;
-}
-
-/* FIXME: rename bla_thread() function to something more descriptive */
-void *bla_thread(void *data)
-{
-	struct bla_failed_station *failed_station;
-	struct bla_ringing_station *ringing_station;
-
-	ast_mutex_lock(&bla.lock);
-
-	while (!bla.stop) {
-		struct bla_event *event;
-		struct timespec ts = { 0, };
-		unsigned int have_timeout = 0;
-
-		/* Wait for events while the event queue is empty */
-		if (AST_LIST_EMPTY(&bla.event_q)) {
-			/* Check various timers for timeouts */
-			if ((have_timeout = bla_process_timers(&ts)))
-				ast_cond_timedwait(&bla.cond, &bla.lock, &ts);
-			else
-				ast_cond_wait(&bla.cond, &bla.lock);
-			if (bla.stop)
-				break;
-		}
-
-		if (have_timeout)
-			/* FIXME: Document this */
-			bla_process_timers(NULL);
-
-		while ((event = AST_LIST_REMOVE_HEAD(&bla.event_q, entry))) {
-			ast_mutex_unlock(&bla.lock);
-			switch (event->type) {
-				case BLA_EVENT_HOLD:
-					bla_handle_hold_event(event);
-					break;
-				case BLA_EVENT_DIAL_STATE:
-					bla_handle_dial_state_event();
-					break;
-				case BLA_EVENT_RINGING_TRUNK:
-					bla_handle_ringing_trunk_event();
-					break;
-			}
-			bla_event_destroy(event);
-			ast_mutex_lock(&bla.lock);
-		}
-	}
-
-	ast_mutex_unlock(&bla.lock);
-
-	/* Clean up before leaving the thread */
-	/* FIXME: These resources should be allocated and destroyed in the same
-	 * thread, for clarity. */
-	while ((ringing_station = AST_LIST_REMOVE_HEAD(&bla.ringing_stations, entry))) {
-		bla_ringing_station_destroy(ringing_station);
-	}
-	while ((failed_station = AST_LIST_REMOVE_HEAD(&bla.failed_stations, entry))) {
-		bla_failed_station_destroy(failed_station);
-	}
-
-	return NULL;
-}
-
-
-/* BLA Event Functions */
-
-/*! \brief Calculate the time until the next known event
- *  \note Called with sla.lock locked */
-int bla_process_timers(struct timespec *ts)
-{
-	unsigned int timeout = UINT_MAX;
-	struct timeval wait;
-	unsigned int change_made = 0;
-
-	/* Check for ring timeouts on ringing trunks */
-	if (bla_calc_trunk_timeouts(&timeout))
-		change_made = 1;
-
-	/* Check for ring timeouts on ringing stations */
-	if (bla_calc_station_timeouts(&timeout))
-		change_made = 1;
-
-	/* Check for station ring delays */
-	if (bla_calc_station_delays(&timeout))
-		change_made = 1;
-
-	/* Queue reprocessing of ringing trunks */
-	if (change_made)
-		bla_queue_event_nolock(BLA_EVENT_RINGING_TRUNK);
-
-	/* No timeout */
-	if (timeout == UINT_MAX)
-		return 0;
-
-	if (ts) {
-		wait = ast_tvadd(ast_tvnow(), ast_samp2tv(timeout, 1000));
-		ts->tv_sec = wait.tv_sec;
-		ts->tv_nsec = wait.tv_usec * 1000;
-	}
-
-	return 1;
-}
-
-/*! \brief Process trunk ring timeouts
- * \note Called with bla.lock locked
- * \return non-zero if a change to the ringing trunks was made
- */
-int bla_calc_trunk_timeouts(unsigned int *timeout)
-{
-	struct bla_ringing_trunk *ringing_trunk;
-	int res = 0;
-
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&bla.ringing_trunks, ringing_trunk, entry) {
-		int time_left, time_elapsed;
-		if (!ringing_trunk->trunk->ring_timeout)
-			continue;
-		time_elapsed = ast_tvdiff_ms(ast_tvnow(), ringing_trunk->ring_begin);
-		time_left = (ringing_trunk->trunk->ring_timeout * 1000) - time_elapsed;
-		if (time_left <= 0) {
-			pbx_builtin_setvar_helper(ringing_trunk->trunk->chan, "BLATRUNK_STATUS", "RINGTIMEOUT");
-			AST_LIST_REMOVE_CURRENT(entry);
-			bla_stop_ringing_trunk(ringing_trunk);
-			res = 1;
-			continue;
-		}
-		if (time_left < *timeout)
-			*timeout = time_left;
-	}
-	AST_LIST_TRAVERSE_SAFE_END;
-
-	return res;
-}
-
-/*! \brief Process station ring timeouts
- * \note Called with bla.lock locked
- * \return non-zero if a change to the ringing stations was made
- */
-int bla_calc_station_timeouts(unsigned int *timeout)
-{
-	struct bla_ringing_trunk *ringing_trunk;
-	struct bla_ringing_station *ringing_station;
-	int res = 0;
-
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&bla.ringing_stations, ringing_station, entry) {
-		unsigned int ring_timeout = 0;
-		int time_elapsed, time_left = INT_MAX, final_trunk_time_left = INT_MIN;
-		struct bla_trunk_ref *trunk_ref;
-
-		/* If there are any ring timeouts specified for a specific trunk
-		 * on the station, then use the highest per-trunk ring timeout.
-		 * Otherwise, use the ring timeout set for the entire station. */
-		AST_LIST_TRAVERSE(&ringing_station->station->trunks, trunk_ref, entry) {
-			struct bla_station_ref *station_ref;
-			int trunk_time_elapsed, trunk_time_left;
-
-			AST_LIST_TRAVERSE(&bla.ringing_trunks, ringing_trunk, entry) {
-				if (ringing_trunk->trunk == trunk_ref->trunk)
-					break;
-			}
-			if (!ringing_trunk)
-				continue;
-
-			/* If there is a trunk that is ringing without a timeout, then the
-			 * only timeout that could matter is a global station ring timeout. */
-			if (!trunk_ref->ring_timeout)
-				break;
-
-			/* This trunk on this station is ringing and has a timeout.
-			 * However, make sure this trunk isn't still ringing from a
-			 * previous timeout.  If so, don't consider it. */
-			AST_LIST_TRAVERSE(&ringing_trunk->timed_out_stations, station_ref, entry) {
-				if (station_ref->station == ringing_station->station)
-					break;
-			}
-			if (station_ref)
-				continue;
-
-			trunk_time_elapsed = ast_tvdiff_ms(ast_tvnow(), ringing_trunk->ring_begin);
-			trunk_time_left = (trunk_ref->ring_timeout * 1000) - trunk_time_elapsed;
-			if (trunk_time_left > final_trunk_time_left)
-				final_trunk_time_left = trunk_time_left;
-		}
-
-		/* No timeout was found for ringing trunks, and no timeout for the entire station */
-		if (final_trunk_time_left == INT_MIN && !ringing_station->station->ring_timeout)
-			continue;
-
-		/* Compute how much time is left for a global station timeout */
-		if (ringing_station->station->ring_timeout) {
-			ring_timeout = ringing_station->station->ring_timeout;
-			time_elapsed = ast_tvdiff_ms(ast_tvnow(), ringing_station->ring_begin);
-			time_left = (ring_timeout * 1000) - time_elapsed;
-		}
-
-		/* If the time left based on the per-trunk timeouts is smaller than the
-		 * global station ring timeout, use that. */
-		if (final_trunk_time_left > INT_MIN && final_trunk_time_left < time_left)
-			time_left = final_trunk_time_left;
-
-		/* If there is no time left, the station needs to stop ringing */
-		if (time_left <= 0) {
-			AST_LIST_REMOVE_CURRENT(entry);
-			bla_stop_ringing_station(ringing_station, BLA_STATION_HANGUP_TIMEOUT);
-			res = 1;
-			continue;
-		}
-
-		/* There is still some time left for this station to ring, so save that
-		 * timeout if it is the first event scheduled to occur */
-		if (time_left < *timeout)
-			*timeout = time_left;
-	}
-	AST_LIST_TRAVERSE_SAFE_END;
-
-	return res;
-}
-
-/*! \brief Calculate the ring delay for a station
- * \note Assumes bla.lock is locked
- */
-int bla_calc_station_delays(unsigned int *timeout)
-{
-	struct bla_station *station;
-	int res = 0;
-	struct ao2_iterator i;
-
-	i = ao2_iterator_init(bla_stations, 0);
-	for (; (station = ao2_iterator_next(&i)); ao2_ref(station, -1)) {
-		struct bla_ringing_trunk *ringing_trunk;
-		int time_left;
-
-		/* Ignore stations already running */
-		if (bla_check_ringing_station(station))
-			continue;
-
-		/* Ignore stations already on a call */
-		if (bla_check_inuse_station(station))
-			continue;
-
-		/* Ignore stations that don't have one of their trunks ringing */
-		if (!(ringing_trunk = bla_choose_ringing_trunk(station, NULL, 0)))
-			continue;
-
-		if ((time_left = bla_check_station_delay(station, ringing_trunk)) == INT_MAX)
-			continue;
-
-		/* FIXME: grammar */
-		/* If there is no time left, then the station needs to start ringing.
-		 * Return non-zero so that an event will be queued up an event to 
-		 * make that happen. */
-		if (time_left <= 0) {
-			res = 1;
-			continue;
-		}
-
-		if (time_left < *timeout)
-			*timeout = time_left;
-	}
-	ao2_iterator_destroy(&i);
-
-	return res;
-}
-
-/* FIXME: document this */
-void bla_handle_hold_event(struct bla_event *event)
-{
-  /* FIXME: This is a very unsafe way to communicate between these threads */
-  if (event->trunk_ref->trunk->chan == NULL)  /* FIXME: event->trunk_ref doesn't have enough reference counts, so it gets destroyed inside bla_thread */
-    return;  /* The trunk has already exited the conference; nothing to do */
-	/* FIXME: document this */
-	ast_atomic_fetchadd_int((int *) &event->trunk_ref->trunk->hold_stations, 1);
-	event->trunk_ref->state = BLA_TRUNK_STATE_ONHOLD_BYME;
-	ast_devstate_changed(AST_DEVICE_ONHOLD, AST_DEVSTATE_CACHABLE, "BLA:%s_%s",
-			event->station->name, event->trunk_ref->trunk->name);
-	bla_change_trunk_state(event->trunk_ref->trunk, BLA_TRUNK_STATE_ONHOLD, 
-			INACTIVE_TRUNK_REFS, event->trunk_ref);
-
-	if (event->trunk_ref->trunk->active_stations == 1) {
-		/* The station putting it on hold is the only one on the call, so start
-		 * Music on hold to the trunk. */
-		event->trunk_ref->trunk->on_hold = 1;
-    /* FIXME: Segfault here when trunk channel has exited already. Should probably check for NULL channel here. */
-		ast_indicate(event->trunk_ref->trunk->chan, AST_CONTROL_HOLD);
-	}
-
-	/* FIXME: I'm pretty sure that the SLA meetme logic expects the station to re-originate upon un-holding the trunk, but my station does not do this. */
-/*	ast_softhangup(event->trunk_ref->chan, AST_SOFTHANGUP_DEV);
-	event->trunk_ref->chan = NULL; */
-}
-
-/* FIXME: document this */
-void bla_handle_dial_state_event(void)
-{
-	struct bla_ringing_station *ringing_station;
-
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&bla.ringing_stations, ringing_station, entry) {
-		RAII_VAR(struct bla_trunk_ref *, s_trunk_ref, NULL, ao2_cleanup);
-		struct bla_ringing_trunk *ringing_trunk = NULL;
-		struct bla_run_station_args args;
-		enum ast_dial_result dial_res;
-		pthread_t thread;
-		ast_mutex_t cond_lock;
-		ast_cond_t cond;
-
-		switch ((dial_res = ast_dial_state(ringing_station->station->dial))) {
-			case AST_DIAL_RESULT_HANGUP:
-			case AST_DIAL_RESULT_INVALID:
-			case AST_DIAL_RESULT_FAILED:
-			case AST_DIAL_RESULT_TIMEOUT:
-			case AST_DIAL_RESULT_UNANSWERED:
-				AST_LIST_REMOVE_CURRENT(entry);
-				bla_stop_ringing_station(ringing_station, BLA_STATION_HANGUP_NORMAL);
-				break;
-			case AST_DIAL_RESULT_ANSWERED:
-				AST_LIST_REMOVE_CURRENT(entry);
-				/* Find the appropriate trunk to answer. */
-				ast_mutex_lock(&bla.lock);
-				ringing_trunk = bla_choose_ringing_trunk(ringing_station->station, &s_trunk_ref, 1);
-				ast_mutex_unlock(&bla.lock);
-				if (!ringing_trunk) {
-					/* This case happens in a bit of a race condition.  If two stations answer
-					 * the outbound call at the same time, the first one will get connected to
-					 * the trunk.  When the second one gets here, it will not see any trunks
-					 * ringing so we have no idea what to conect it to.  So, we just hang up
-					 * on it. */
-					ast_debug(1, "Found no ringing trunk for station '%s' to answer!\n",
-							ringing_station->station->name);
-					ast_dial_join(ringing_station->station->dial);
-					ast_dial_destroy(ringing_station->station->dial);
-					ringing_station->station->dial = NULL;
-					bla_ringing_station_destroy(ringing_station);
-					break;
-				}
-				/* Track the channel that answered this trunk */
-				s_trunk_ref->chan = ast_dial_answered(ringing_station->station->dial);
-				/* Actually answer the trunk */
-				bla_answer_trunk_chan(ringing_trunk->trunk->chan);
-				bla_change_trunk_state(ringing_trunk->trunk, BLA_TRUNK_STATE_UP, ALL_TRUNK_REFS, NULL);
-				/* Now, start a thread that will connect this station to the trunk.  The rest of
-				 * the code here sets up the thread and ensures that it is able to save the arguments
-				 * before they are no longer valid since they are allocated on the stack. */
-				ao2_ref(s_trunk_ref, 1);
-				args.trunk_ref = s_trunk_ref;
-				ao2_ref(ringing_station->station, 1);
-				args.station = ringing_station->station;
-				args.cond = &cond;
-				args.cond_lock = &cond_lock;
-				bla_ringing_trunk_destroy(ringing_trunk);
-				bla_ringing_station_destroy(ringing_station);
-				ast_mutex_init(&cond_lock);
-				ast_cond_init(&cond, NULL);
-				ast_mutex_lock(&cond_lock);
-				ast_pthread_create_detached_background(&thread, NULL, (void *(*)(void *))bla_run_station, &args);
-				ast_cond_wait(&cond, &cond_lock);
-				ast_mutex_unlock(&cond_lock);
-				ast_mutex_destroy(&cond_lock);
-				ast_cond_destroy(&cond);
-				break;
-			case AST_DIAL_RESULT_TRYING:
-			case AST_DIAL_RESULT_RINGING:
-			case AST_DIAL_RESULT_PROGRESS:
-			case AST_DIAL_RESULT_PROCEEDING:
-				break;
-		}
-		if (dial_res == AST_DIAL_RESULT_ANSWERED) {
-			/* Queue up reprocessing ringing trunks, and then ringing stations again */
-			bla_queue_event(BLA_EVENT_RINGING_TRUNK);
-			bla_queue_event(BLA_EVENT_DIAL_STATE);
-			break;
-		}
-	}
-	AST_LIST_TRAVERSE_SAFE_END;
-}
-
-void bla_handle_ringing_trunk_event(void)
-{
-	ast_mutex_lock(&bla.lock);
-	bla_ring_stations();
-	ast_mutex_unlock(&bla.lock);
-
-	/* Find stations that shouldn't be ringing anymore */
-	bla_hangup_stations();
 }
 
 char *bla_show_stations(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
