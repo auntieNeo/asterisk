@@ -27,6 +27,8 @@ all: _all
 
 include $(ASTTOPDIR)/Makefile.moddir_rules
 
+$(call MOD_ADD_C,app_bla,$(wildcard bla/*.c))
+
 $(call MOD_ADD_C,app_confbridge,$(wildcard confbridge/*.c))
 
 ifneq ($(findstring $(OSARCH), mingw32 cygwin ),)
