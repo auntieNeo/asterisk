@@ -21,7 +21,29 @@
 #include "asterisk/channel.h"
 #include "asterisk/strings.h"
 
+#include "bla_trunk.h"
+
 #include "bla_station.h"
+
+int bla_station_init(struct bla_station *self)
+{
+	self->_name = malloc(AST_MAX_CONTEXT);
+	self->_name[0] = '\0';
+	self->_trunks = ao2_container_alloc(  /* FIXME: Make a convenience function for this */
+		  1,
+		  (ao2_hash_fn*)bla_trunk_hash,
+		  (ao2_callback_fn*)bla_trunk_cmp);
+
+	return 0;
+}
+
+int bla_station_destroy(struct bla_station *self)
+{
+	ao2_ref(self->_trunks, -1);
+	free(self->_name);
+
+	return 0;
+}
 
 int bla_station_hash(const struct bla_station *self, int flags)
 {

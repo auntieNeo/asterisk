@@ -19,14 +19,54 @@
 #ifndef _BLA_STATION_H
 #define _BLA_STATION_H
 
+/* Forward declarations */
+struct ao2_container;
+
+#include "asterisk.h"
+
+#include "asterisk/channel.h"
+
 struct bla_station {
 	char *_name;
 	struct ao2_container *_trunks;
 };
 
+/*!
+ * \brief Accessor for bla_station object's name
+ * \return bla_station name as char array
+ *
+ * This accessor function simply returns the bla_station object's name.
+ */
 static force_inline const char *bla_station_name(const struct bla_station *self)
 {
 	return self->_name;
+}
+
+/*!
+ * \brief Accessor for setting bla_station object's name
+ *
+ * This accessor function simply sets the bla_station object's name.
+ */
+static force_inline void bla_station_set_name(const struct bla_station *self, const char *name)
+{
+	strncpy(self->_name, name, AST_MAX_CONTEXT);
+}
+
+int bla_station_init(struct bla_station *self);
+
+int bla_station_destroy(struct bla_station *self);
+
+/*!
+ * \brief Allocate a bla_station object
+ * \return Pointer to bla_station object allocated with ao2_alloc()
+ *
+ * This is a convenience function for allocating a bla_station object. The
+ * returned bla_station object is an astobj2 object with one reference count on
+ * it.
+ */
+static force_inline struct bla_station *bla_station_alloc(void)
+{
+	return ao2_alloc(sizeof(struct bla_station), (ao2_destructor_fn)bla_station_destroy);
 }
 
 int bla_station_hash(const struct bla_station *self, int flags);
