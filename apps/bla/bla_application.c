@@ -19,7 +19,9 @@
 #include "asterisk.h"
 
 #include "asterisk/astobj2.h"
+#include "asterisk/utils.h"
 
+#include "bla_config.h"
 #include "bla_station.h"
 #include "bla_trunk.h"
 
@@ -27,23 +29,37 @@
 
 int bla_application_init(struct bla_application *self)
 {
-  self->_stations = ao2_container_alloc(1, (ao2_hash_fn*)bla_station_hash, (ao2_callback_fn*)bla_station_cmp);
-  self->_trunks = ao2_container_alloc(1, (ao2_hash_fn*)bla_trunk_hash, (ao2_callback_fn*)bla_trunk_cmp);
+	self->_stations = NULL;
+	self->_trunks = NULL;
 
-  return 0;
+	return 0;
 }
 
 int bla_application_destroy(struct bla_application *self)
 {
-  ao2_ref(self->_trunks, -1);
-  ao2_ref(self->_stations, -1);
-  // TODO: assert that these refcounts are now zero
+	if (self->_trunks != NULL)
+		ao2_ref(self->_trunks, -1);
+	if (self->_stations != NULL)
+		ao2_ref(self->_stations, -1);
+	/* TODO: Assert that these refcounts are now zero */
 
-  return 0;
+	return 0;
 }
 
 int bla_application_read_config(struct bla_application *self)
 {
-  // TODO
-  return 0;
+	RAII_VAR(struct bla_config *, config, bla_config_alloc(), bla_config_destroy);
+
+	bla_config_init(config);
+
+	if(bla_config_read(config))
+		return -1;
+
+	/* Steal the stations and trunks from config before it leaves scope */
+	self->_stations = bla_config_stations(config);
+	ao2_ref(self->_stations, 1);
+	self->_trunks = bla_config_trunks(config);
+	ao2_ref(self->_trunks, 1);
+
+	return 0;
 }

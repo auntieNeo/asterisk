@@ -21,6 +21,9 @@
 
 /* Forward declarations */
 struct ast_channel;
+struct bla_event_queue;
+
+#include "asterisk/astobj2.h"
 
 struct bla_application {
 	struct ao2_container *_stations;
@@ -47,6 +50,29 @@ int bla_application_init(struct bla_application *self);
  */
 int bla_application_destroy(struct bla_application *self);
 
+/*!
+ * \brief Allocate a BLA application
+ * \return Pointer to BLA application object allocated with ao2_alloc()
+ *
+ * This is a convenience function for allocating a BLA application. The
+ * returned BLA application object is an astobj2 object with one reference
+ * count on it.
+ */
+static force_inline struct bla_application *bla_application_alloc(void)
+{
+	return ao2_alloc(sizeof(struct bla_application), (ao2_destructor_fn)bla_application_destroy);
+}
+
+/*!
+ * \brief Read config for BLA application
+ * \param self Pointer to the BLA application object
+ * \retval 0 on success
+ * \retval non-zero on failure
+ *
+ * This function reads the config file "bla.conf" for the app_bla.so
+ * application, and sets the BLA application's state if the config file was
+ * read and parsed successfully.
+ */
 int bla_application_read_config(struct bla_application *self);
 
 int bla_application_exec_station(struct bla_application *self, struct ast_channel *chan);

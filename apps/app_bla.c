@@ -38,7 +38,7 @@
 static struct bla_application *app;
 
 static int load_module(void) {
-	app = ao2_alloc(sizeof(struct bla_application), (ao2_destructor_fn)bla_application_destroy);
+	app = bla_application_alloc();
 
 	bla_application_init(app);
 
