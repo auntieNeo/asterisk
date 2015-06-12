@@ -38,13 +38,18 @@
 static struct bla_application *app;
 
 static int load_module(void) {
-  ast_log(LOG_NOTICE, "Loading BLA module");
+	ast_log(LOG_NOTICE, "Loading BLA module");
 
 	app = bla_application_alloc();
 
 	bla_application_init(app);
 
-	bla_application_read_config(app);
+	if (bla_application_read_config(app))
+	{
+		ast_log(LOG_ERROR, "Failed to read BLA config; refusing to load app_bla module");
+		ao2_ref(app, -1);
+		return AST_MODULE_LOAD_DECLINE;
+	}
 
 	return AST_MODULE_LOAD_SUCCESS;
 }

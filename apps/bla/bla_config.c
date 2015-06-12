@@ -65,7 +65,6 @@ static struct aco_file bla_conf = {
 	.types = ACO_TYPES(&bla_station_type, &bla_trunk_type),
 };
 
-
 static AO2_GLOBAL_OBJ_STATIC(bla_global_config);
 
 CONFIG_INFO_STANDARD(bla_config_info, bla_global_config, NULL,
@@ -97,8 +96,8 @@ static aco_snapshot_alloc bla_config_get_dummy_alloc(struct bla_config *self)
 
 int bla_config_init(struct bla_config *self)
 {
-  /* FIXME: Make bla_config a singleton. config_options.h is too difficult to use otherwise. */
-  ast_log(LOG_NOTICE, "Initializing BLA config");
+	/* FIXME: Make bla_config a singleton. config_options.h is too difficult to use otherwise. */
+	ast_log(LOG_NOTICE, "Initializing BLA config");
 
 	self->_stations = ao2_container_alloc(  /* FIXME: Make a convenience function for this */
 		  1,
@@ -117,7 +116,7 @@ int bla_config_init(struct bla_config *self)
 	if (aco_info_init(&bla_config_info))
 		return -1;
 
-  /* FIXME: This can't handle multiple trunk strings */
+	/* FIXME: This can't handle multiple trunk strings */
 /*	aco_option_register(&bla_config_info, "trunk", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _trunk)); */
 
 	aco_option_register(&bla_config_info, "device", ACO_EXACT, bla_trunk_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_trunk, _device));
@@ -139,7 +138,7 @@ int bla_config_destroy(struct bla_config *self)
 
 int bla_config_read(struct bla_config *self)
 {
-  ast_log(LOG_NOTICE, "Reading and parsing bla.conf");
+	ast_log(LOG_NOTICE, "Reading and parsing bla.conf");
 
 	if (aco_process_config(&bla_config_info, 0) == ACO_PROCESS_ERROR)
 		return -1;

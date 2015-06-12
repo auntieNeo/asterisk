@@ -53,12 +53,19 @@ int bla_application_read_config(struct bla_application *self)
 {
 	RAII_VAR(struct bla_config *, config, bla_config_alloc(), bla_config_destroy);
 
-  ast_log(LOG_NOTICE, "Application reading BLA config");
+	ast_log(LOG_NOTICE, "Application reading BLA config");
 
-	bla_config_init(config);
+	if (bla_config_init(config))
+	{
+		ast_log(LOG_ERROR, "Failed to initialize bla_config object");
+		return -1;
+	}
 
 	if(bla_config_read(config))
+	{
+		ast_log(LOG_ERROR, "Failed to read/parse bla.conf BLA config");
 		return -1;
+	}
 
 	/* Steal the stations and trunks from config before it leaves scope */
 	self->_stations = bla_config_stations(config);
