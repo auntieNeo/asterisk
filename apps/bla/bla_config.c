@@ -97,6 +97,7 @@ static aco_snapshot_alloc bla_config_get_dummy_alloc(struct bla_config *self)
 
 int bla_config_init(struct bla_config *self)
 {
+  /* FIXME: Make bla_config a singleton. config_options.h is too difficult to use otherwise. */
   ast_log(LOG_NOTICE, "Initializing BLA config");
 
 	self->_stations = ao2_container_alloc(  /* FIXME: Make a convenience function for this */
@@ -111,16 +112,15 @@ int bla_config_init(struct bla_config *self)
 	/* We aren't using the CONFIG_INFO_STANDARD macro directly here because
 	 * it creates a static structure.
 	 */
-	memcpy(&self->_config_info, &bla_config_info, sizeof(bla_config_info));
-	self->_config_info.snapshot_alloc = bla_config_get_dummy_alloc(self);
+	bla_config_info.snapshot_alloc = bla_config_get_dummy_alloc(self);
 
-	if (aco_info_init(&self->_config_info))
+	if (aco_info_init(&bla_config_info))
 		return -1;
 
   /* FIXME: This can't handle multiple trunk strings */
-/*	aco_option_register(&self->_config_info, "trunk", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _trunk)); */
+/*	aco_option_register(&bla_config_info, "trunk", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _trunk)); */
 
-	aco_option_register(&self->_config_info, "device", ACO_EXACT, bla_trunk_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_trunk, _device));
+	aco_option_register(&bla_config_info, "device", ACO_EXACT, bla_trunk_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_trunk, _device));
 
 
 	return 0;
@@ -132,7 +132,7 @@ int bla_config_destroy(struct bla_config *self)
 	ao2_ref(self->_stations, -1);
 	// TODO: assert that these refcounts are now one and not zero
 
-	aco_info_destroy(&self->_config_info);
+	aco_info_destroy(&bla_config_info);
 
 	return 0;
 }
@@ -141,7 +141,7 @@ int bla_config_read(struct bla_config *self)
 {
   ast_log(LOG_NOTICE, "Reading and parsing bla.conf");
 
-	if (aco_process_config(&self->_config_info, 0) == ACO_PROCESS_ERROR)
+	if (aco_process_config(&bla_config_info, 0) == ACO_PROCESS_ERROR)
 		return -1;
 
 	return 0;

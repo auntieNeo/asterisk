@@ -26,7 +26,6 @@
 struct bla_config {
 	struct ao2_container *_stations;
 	struct ao2_container *_trunks;
-	struct aco_info _config_info;
 };
 
 /*!
