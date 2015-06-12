@@ -74,7 +74,7 @@ int bla_trunk_hash(const struct bla_trunk *self, int flags);
 
 int bla_trunk_cmp(
 	const struct bla_trunk *self,
-	const struct bla_trunk *other,
+	void *arg,
 	int flags);
 
 #endif

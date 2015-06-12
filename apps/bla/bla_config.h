@@ -19,9 +19,14 @@
 #ifndef _BLA_CONFIG_H
 #define _BLA_CONFIG_H
 
+#include "asterisk.h"
+
+#include "asterisk/config_options.h"
+
 struct bla_config {
 	struct ao2_container *_stations;
 	struct ao2_container *_trunks;
+	struct aco_info _config_info;
 };
 
 /*!

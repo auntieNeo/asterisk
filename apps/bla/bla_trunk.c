@@ -52,10 +52,25 @@ int bla_trunk_hash(const struct bla_trunk *self, int flags)
 
 int bla_trunk_cmp(
 	const struct bla_trunk *self,
-	const struct bla_trunk *other,
+	void *arg,
 	int flags)
 {
-	if(strncmp(bla_trunk_name(self), bla_trunk_name(other), AST_MAX_CONTEXT) == 0)
-		return CMP_MATCH | CMP_STOP;
-	return 0;
+	const struct bla_trunk *other = arg;
+	const char *name = arg;
+	int found = 0;
+
+	switch (flags) {
+		case OBJ_SEARCH_OBJECT:
+			name = bla_trunk_name(other);
+		case OBJ_SEARCH_KEY:
+			if (strncmp(bla_trunk_name(self), name, AST_MAX_CONTEXT) == 0)
+				found = 1;
+			break;
+		case OBJ_SEARCH_PARTIAL_KEY:
+			if (strncmp(bla_trunk_name(self), name, strnlen(name, AST_MAX_CONTEXT)) == 0)
+				found = 1;
+			break;
+	}
+
+	return found ? (CMP_MATCH | CMP_STOP) : 0;
 }

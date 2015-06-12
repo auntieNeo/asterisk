@@ -38,6 +38,7 @@ static struct aco_type bla_station_type = {
 	.matchvalue = "station",
 	.item_alloc = (aco_type_item_alloc)bla_config_alloc_station,
 	.item_find = (aco_type_item_find)bla_config_find_station,
+	.item_offset = offsetof(struct bla_config, _stations),
 };
 static struct aco_type *bla_station_types[] = { &bla_station_type };
 
@@ -54,6 +55,7 @@ static struct aco_type bla_trunk_type = {
 	.matchvalue = "trunk",
 	.item_alloc = (aco_type_item_alloc)bla_config_alloc_trunk,
 	.item_find = (aco_type_item_find)bla_config_find_trunk,
+	.item_offset = offsetof(struct bla_config, _trunks),
 };
 static struct aco_type *bla_trunk_types[] = { &bla_trunk_type };
 
@@ -62,12 +64,28 @@ static struct aco_file bla_conf = {
 	.types = ACO_TYPES(&bla_station_type, &bla_trunk_type),
 };
 
-/* We don't use static globals; provide a dummy instead */
-static AO2_GLOBAL_OBJ_STATIC(dummy);
-static void *bla_config_alloc_dummy(void) { return NULL; }
-CONFIG_INFO_STANDARD(bla_config_info, dummy, bla_config_alloc_dummy,
-	.files = ACO_FILES(&bla_conf),
-);
+/* The following emulates a sort of lambda pattern given only this C callback
+ * from config_options.h:
+ *
+ * typedef void *(*aco_snapshot_alloc)(void);
+ *
+ * This is all so that we can allocate a local bla_config structure rather than
+ * a static one. I'm not super happy about this. If config reloading is ever to
+ * be implemented, this hack will need to be more clever than this, possibly
+ * with locks.
+ */
+static struct bla_config *dummy_config = NULL;
+static void *bla_config_alloc_dummy(void) {
+	ast_assert(dummy_config != NULL);
+	return dummy_config;
+}
+static aco_snapshot_alloc bla_config_get_dummy_alloc(struct bla_config *self)
+{
+	ast_assert(dummy_config == NULL);
+	dummy_config = self;
+
+	return bla_config_alloc_dummy;
+}
 
 int bla_config_init(struct bla_config *self)
 {
@@ -80,6 +98,17 @@ int bla_config_init(struct bla_config *self)
 		  (ao2_hash_fn*)bla_trunk_hash,
 		  (ao2_callback_fn*)bla_trunk_cmp);
 
+	/* NOTE: These values are derived from the CONFIG_INFO_STANDARD macro.
+	 * We aren't using that macro because it creates a static structure.
+	 */
+	self->_config_info.module = AST_MODULE;
+	self->_config_info.global_obj = self;  /* Not so global */
+	self->_config_info.snapshot_alloc = bla_config_get_dummy_alloc(self);
+	self->_config_info.files = ACO_FILES(&bla_conf);
+
+	if (aco_info_init(&self->_config_info))
+		return -1;
+
 	return 0;
 }
 
@@ -89,23 +118,20 @@ int bla_config_destroy(struct bla_config *self)
 	ao2_ref(self->_stations, -1);
 	// TODO: assert that these refcounts are now one and not zero
 
+	aco_info_destroy(&self->_config_info);
+
 	return 0;
 }
 
 int bla_config_read(struct bla_config *self)
 {
-	if (aco_info_init(&bla_config_info))  // FIXME: Use a local variable for bla_config_info
-		return -1;
-
   /* FIXME: This can't handle multiple trunk strings */
-/*	aco_option_register(&bla_config_info, "trunk", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _trunk)); */
+/*	aco_option_register(&self->_config_info, "trunk", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _trunk)); */
 
-	aco_option_register(&bla_config_info, "device", ACO_EXACT, bla_trunk_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_trunk, _device));
+	aco_option_register(&self->_config_info, "device", ACO_EXACT, bla_trunk_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_trunk, _device));
 
-	if (aco_process_config(&bla_config_info, 0) == ACO_PROCESS_ERROR)
+	if (aco_process_config(&self->_config_info, 0) == ACO_PROCESS_ERROR)
 		return -1;
-
-	aco_info_destroy(&bla_config_info);
 
 	return 0;
 }
@@ -124,11 +150,10 @@ static struct bla_station *bla_config_alloc_station(
 }
 
 static struct bla_station *bla_config_find_station(
-	struct ao2_container *newcontainer,
+	struct ao2_container *container,
 	const char *category)
 {
-	// TODO
-	return NULL;
+	return ao2_find(container, category, OBJ_SEARCH_KEY);
 }
 
 static struct bla_trunk *bla_config_alloc_trunk(
@@ -145,9 +170,8 @@ static struct bla_trunk *bla_config_alloc_trunk(
 }
 
 static struct bla_trunk *bla_config_find_trunk(
-	struct ao2_container *newcontainer,
+	struct ao2_container *container,
 	const char *category)
 {
-	// TODO
-	return NULL;
+	return ao2_find(container, category, OBJ_SEARCH_KEY);
 }
