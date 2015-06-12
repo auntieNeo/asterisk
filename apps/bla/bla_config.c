@@ -64,6 +64,13 @@ static struct aco_file bla_conf = {
 	.types = ACO_TYPES(&bla_station_type, &bla_trunk_type),
 };
 
+
+static AO2_GLOBAL_OBJ_STATIC(bla_global_config);
+
+CONFIG_INFO_STANDARD(bla_config_info, bla_global_config, NULL,
+	.files = ACO_FILES(&bla_conf),
+)
+
 /* The following emulates a sort of lambda pattern given only this C callback
  * from config_options.h:
  *
@@ -98,13 +105,11 @@ int bla_config_init(struct bla_config *self)
 		  (ao2_hash_fn*)bla_trunk_hash,
 		  (ao2_callback_fn*)bla_trunk_cmp);
 
-	/* NOTE: These values are derived from the CONFIG_INFO_STANDARD macro.
-	 * We aren't using that macro because it creates a static structure.
+	/* We aren't using the CONFIG_INFO_STANDARD macro directly here because
+	 * it creates a static structure.
 	 */
-	self->_config_info.module = AST_MODULE;
-	self->_config_info.global_obj = self;  /* Not so global */
+	memcpy(&self->_config_info, &bla_config_info, sizeof(bla_config_info));
 	self->_config_info.snapshot_alloc = bla_config_get_dummy_alloc(self);
-	self->_config_info.files = ACO_FILES(&bla_conf);
 
 	if (aco_info_init(&self->_config_info))
 		return -1;
