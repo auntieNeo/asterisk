@@ -84,6 +84,7 @@ static AO2_GLOBAL_OBJ_STATIC(bla_global_config);
 
 CONFIG_INFO_STANDARD(bla_config_info, bla_global_config, NULL,
 	.files = ACO_FILES(&bla_conf),
+	.hidden = 1,  /* FIXME: This is a hack to avoid having to get the XML documentation working */
 )
 
 /* The following emulates a sort of lambda pattern given only this C callback
