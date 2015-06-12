@@ -38,6 +38,8 @@
 static struct bla_application *app;
 
 static int load_module(void) {
+  ast_log(LOG_NOTICE, "Loading BLA module");
+
 	app = bla_application_alloc();
 
 	bla_application_init(app);

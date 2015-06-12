@@ -19,6 +19,7 @@
 #include "asterisk.h"
 
 #include "asterisk/astobj2.h"
+#include "asterisk/logger.h"
 #include "asterisk/utils.h"
 
 #include "bla_config.h"
@@ -29,6 +30,8 @@
 
 int bla_application_init(struct bla_application *self)
 {
+  ast_log(LOG_NOTICE, "Initializing BLA application");
+
 	self->_stations = NULL;
 	self->_trunks = NULL;
 
@@ -49,6 +52,8 @@ int bla_application_destroy(struct bla_application *self)
 int bla_application_read_config(struct bla_application *self)
 {
 	RAII_VAR(struct bla_config *, config, bla_config_alloc(), bla_config_destroy);
+
+  ast_log(LOG_NOTICE, "Application reading BLA config");
 
 	bla_config_init(config);
 

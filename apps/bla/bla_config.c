@@ -19,6 +19,7 @@
 #include "asterisk.h"
 
 #include "asterisk/config_options.h"
+#include "asterisk/logger.h"
 
 #include "bla_station.h"
 #include "bla_trunk.h"
@@ -96,6 +97,8 @@ static aco_snapshot_alloc bla_config_get_dummy_alloc(struct bla_config *self)
 
 int bla_config_init(struct bla_config *self)
 {
+  ast_log(LOG_NOTICE, "Initializing BLA config");
+
 	self->_stations = ao2_container_alloc(  /* FIXME: Make a convenience function for this */
 		  1,
 		  (ao2_hash_fn*)bla_station_hash,
@@ -114,6 +117,12 @@ int bla_config_init(struct bla_config *self)
 	if (aco_info_init(&self->_config_info))
 		return -1;
 
+  /* FIXME: This can't handle multiple trunk strings */
+/*	aco_option_register(&self->_config_info, "trunk", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _trunk)); */
+
+	aco_option_register(&self->_config_info, "device", ACO_EXACT, bla_trunk_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_trunk, _device));
+
+
 	return 0;
 }
 
@@ -130,10 +139,7 @@ int bla_config_destroy(struct bla_config *self)
 
 int bla_config_read(struct bla_config *self)
 {
-  /* FIXME: This can't handle multiple trunk strings */
-/*	aco_option_register(&self->_config_info, "trunk", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _trunk)); */
-
-	aco_option_register(&self->_config_info, "device", ACO_EXACT, bla_trunk_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_trunk, _device));
+  ast_log(LOG_NOTICE, "Reading and parsing bla.conf");
 
 	if (aco_process_config(&self->_config_info, 0) == ACO_PROCESS_ERROR)
 		return -1;
