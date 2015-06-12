@@ -18,6 +18,7 @@
 
 #include "asterisk.h"
 
+ASTERISK_REGISTER_FILE()
 #include "asterisk/config_options.h"
 #include "asterisk/logger.h"
 
@@ -25,6 +26,20 @@
 #include "bla_trunk.h"
 
 #include "bla_config.h"
+
+/*** DOCUMENTATION
+	<configInfo name="app_bla" language="en_US">
+		<synopsis>Bridged Line Appearances Application</synopsis>
+			<configObject name="global">
+				<synopsis>Unused, but reserved.</synopsis>
+			</configObject>
+			<configObject name="station">
+				<synopsis>A single station (typically a phone terminal) in a BLA system.</synopsis>
+				<configOption name="type">
+				</configOption>
+			</configObject>
+	</configInfo>
+***/
 
 static struct bla_station *bla_config_alloc_station(
 	const char *category);
