@@ -19,6 +19,7 @@
 #include "asterisk.h"
 
 #include "asterisk/channel.h"
+#include "asterisk/logger.h"
 #include "asterisk/strings.h"
 
 #include "bla_trunk.h"
@@ -27,6 +28,8 @@
 
 int bla_station_init(struct bla_station *self)
 {
+	ast_log(LOG_NOTICE, "Initializing BLA station");
+
 	self->_name = malloc(AST_MAX_CONTEXT);
 	self->_name[0] = '\0';
 	self->_trunks = ao2_container_alloc(  /* FIXME: Make a convenience function for this */

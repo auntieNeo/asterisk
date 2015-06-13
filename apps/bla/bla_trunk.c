@@ -27,6 +27,8 @@
 
 int bla_trunk_init(struct bla_trunk *self)
 {
+	ast_log(LOG_NOTICE, "Initializing BLA trunk");
+
 	self->_name = malloc(AST_MAX_CONTEXT);
 	self->_name[0] = '\0';
 	self->_stations = ao2_container_alloc(  /* FIXME: Make a convenience function for this */
@@ -45,9 +47,20 @@ int bla_trunk_destroy(struct bla_trunk *self)
 	return 0;
 }
 
-int bla_trunk_hash(const struct bla_trunk *self, int flags)
+int bla_trunk_hash(void *arg, int flags)
 {
-	return ast_str_hash(bla_trunk_name(self));
+	const struct bla_trunk *self = arg;
+	const char *name = arg;
+
+	switch (flags) {
+		case OBJ_SEARCH_OBJECT:
+			return ast_str_hash(bla_trunk_name(self));
+		case OBJ_SEARCH_KEY: 
+			return ast_str_hash(name);
+	}
+
+	ast_assert(0);
+	return 0;
 }
 
 int bla_trunk_cmp(
@@ -70,6 +83,8 @@ int bla_trunk_cmp(
 			if (strncmp(bla_trunk_name(self), name, strnlen(name, AST_MAX_CONTEXT)) == 0)
 				found = 1;
 			break;
+		default:
+			ast_assert(0);
 	}
 
 	return found ? (CMP_MATCH | CMP_STOP) : 0;

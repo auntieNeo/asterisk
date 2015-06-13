@@ -70,7 +70,7 @@ static force_inline struct bla_trunk *bla_trunk_alloc(void)
 	return ao2_alloc(sizeof(struct bla_trunk), (ao2_destructor_fn)bla_trunk_destroy);
 }
 
-int bla_trunk_hash(const struct bla_trunk *self, int flags);
+int bla_trunk_hash(void *arg, int flags);
 
 int bla_trunk_cmp(
 	const struct bla_trunk *self,
