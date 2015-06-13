@@ -132,9 +132,13 @@ int bla_config_init(struct bla_config *self)
 	if (aco_info_init(&bla_config_info))
 		return -1;
 
+	/* BLA station options */
+	aco_option_register(&bla_config_info, "type", ACO_EXACT, bla_station_types, NULL, OPT_NOOP_T, 0, 0);
 	/* FIXME: This can't handle multiple trunk strings */
 /*	aco_option_register(&bla_config_info, "trunk", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _trunk)); */
 
+	/* BLA trunk options */
+	aco_option_register(&bla_config_info, "type", ACO_EXACT, bla_trunk_types, NULL, OPT_NOOP_T, 0, 0);
 	aco_option_register(&bla_config_info, "device", ACO_EXACT, bla_trunk_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_trunk, _device));
 
 
