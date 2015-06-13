@@ -192,7 +192,7 @@ static struct bla_trunk *bla_config_alloc_trunk(
 
 	bla_trunk_set_name(trunk, category);
 
-	return NULL;
+	return trunk;
 }
 
 static struct bla_trunk *bla_config_find_trunk(
