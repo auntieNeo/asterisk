@@ -23,6 +23,7 @@
 #include "asterisk/strings.h"
 
 #include "bla_trunk.h"
+#include "bla_trunk_ref.h"
 
 #include "bla_station.h"
 
@@ -32,10 +33,11 @@ int bla_station_init(struct bla_station *self)
 
 	self->_name = malloc(AST_MAX_CONTEXT);
 	self->_name[0] = '\0';
-	self->_trunks = ao2_container_alloc(  /* FIXME: Make a convenience function for this */
+	/* self->_trunks is actually a collection of bla_trunk_ref's */
+	self->_trunks = ao2_container_alloc(
 		  1,
-		  (ao2_hash_fn*)bla_trunk_hash,
-		  (ao2_callback_fn*)bla_trunk_cmp);
+		  (ao2_hash_fn*)bla_trunk_ref_hash,
+		  (ao2_callback_fn*)bla_trunk_ref_cmp);
 
 	return 0;
 }
@@ -48,9 +50,32 @@ int bla_station_destroy(struct bla_station *self)
 	return 0;
 }
 
-int bla_station_hash(const struct bla_station *self, int flags)
+void bla_station_add_trunk(struct bla_station *self, const char *trunk_name)
 {
-	return ast_str_hash(bla_station_name(self));
+	struct bla_trunk_ref *trunk_ref;
+
+	trunk_ref = bla_trunk_ref_alloc();
+	bla_trunk_ref_init(trunk_ref);
+	bla_trunk_ref_set_name(trunk_ref, trunk_name);
+
+	ao2_link(self->_trunks, trunk_ref);
+	ao2_ref(trunk_ref, -1);
+}
+
+int bla_station_hash(void *arg, int flags)
+{
+	const struct bla_station *self = arg;
+	const char *name = arg;
+
+	switch (flags) {
+		case OBJ_SEARCH_OBJECT:
+			return ast_str_hash(bla_station_name(self));
+		case OBJ_SEARCH_KEY: 
+			return ast_str_hash(name);
+	}
+
+	ast_assert(0);
+	return 0;
 }
 
 int bla_station_cmp(

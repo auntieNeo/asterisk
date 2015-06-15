@@ -27,9 +27,9 @@ struct ao2_container;
 #include "asterisk/channel.h"
 
 struct bla_trunk {
+	struct ao2_container *_stations;  /* Actually bla_station_ref's */
 	char *_name;
 	char *_device;
-	struct ao2_container *_stations;
 };
 
 /*!

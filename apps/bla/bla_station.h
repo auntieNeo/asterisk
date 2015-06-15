@@ -27,8 +27,9 @@ struct ao2_container;
 #include "asterisk/channel.h"
 
 struct bla_station {
+	struct ao2_container *_trunks;  /* Actually bla_trunk_ref's */
 	char *_name;
-	struct ao2_container *_trunks;
+	char *_device;
 };
 
 /*!
@@ -47,7 +48,7 @@ static force_inline const char *bla_station_name(const struct bla_station *self)
  *
  * This accessor function simply sets the bla_station object's name.
  */
-static force_inline void bla_station_set_name(const struct bla_station *self, const char *name)
+static force_inline void bla_station_set_name(struct bla_station *self, const char *name)
 {
 	strncpy(self->_name, name, AST_MAX_CONTEXT);
 }
@@ -69,7 +70,9 @@ static force_inline struct bla_station *bla_station_alloc(void)
 	return ao2_alloc(sizeof(struct bla_station), (ao2_destructor_fn)bla_station_destroy);
 }
 
-int bla_station_hash(const struct bla_station *self, int flags);
+void bla_station_add_trunk(struct bla_station *self, const char *trunk_name);
+
+int bla_station_hash(void *arg, int flags);
 
 int bla_station_cmp(
 	const struct bla_station *self,

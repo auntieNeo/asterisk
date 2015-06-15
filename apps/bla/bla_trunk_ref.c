@@ -19,44 +19,30 @@
 #include "asterisk.h"
 
 #include "asterisk/channel.h"
-#include "asterisk/strings.h"
+#include "asterisk/utils.h"
 
-#include "bla_station.h"
-#include "bla_station_ref.h"
+#include "bla_trunk_ref.h"
 
-#include "bla_trunk.h"
-
-int bla_trunk_init(struct bla_trunk *self)
+int bla_trunk_ref_init(struct bla_trunk_ref *self)
 {
-	ast_log(LOG_NOTICE, "Initializing BLA trunk");
-
-	self->_name = malloc(AST_MAX_CONTEXT);
-	self->_name[0] = '\0';
-	/* self->_stations is actually a collection of bla_station_ref's */
-	self->_stations = ao2_container_alloc(
-		  1,
-		  (ao2_hash_fn*)bla_station_ref_hash,
-		  (ao2_callback_fn*)bla_station_ref_cmp);
-
+	self->_name = ast_malloc(AST_MAX_CONTEXT);
 	return 0;
 }
 
-int bla_trunk_destroy(struct bla_trunk *self)
+int bla_trunk_ref_destroy(struct bla_trunk_ref *self)
 {
-	ao2_ref(self->_stations, -1);
-	free(self->_name);
-
+	ast_free(self->_name);
 	return 0;
 }
 
-int bla_trunk_hash(void *arg, int flags)
+int bla_trunk_ref_hash(void *arg, int flags)
 {
-	const struct bla_trunk *self = arg;
+	const struct bla_trunk_ref *self = arg;
 	const char *name = arg;
 
 	switch (flags) {
 		case OBJ_SEARCH_OBJECT:
-			return ast_str_hash(bla_trunk_name(self));
+			return ast_str_hash(bla_trunk_ref_name(self));
 		case OBJ_SEARCH_KEY: 
 			return ast_str_hash(name);
 	}
@@ -65,24 +51,24 @@ int bla_trunk_hash(void *arg, int flags)
 	return 0;
 }
 
-int bla_trunk_cmp(
-	const struct bla_trunk *self,
+int bla_trunk_ref_cmp(
+	const struct bla_trunk_ref *self,
 	void *arg,
 	int flags)
 {
-	const struct bla_trunk *other = arg;
+	const struct bla_trunk_ref *other = arg;
 	const char *name = arg;
 	int found = 0;
 
 	switch (flags) {
 		case OBJ_SEARCH_OBJECT:
-			name = bla_trunk_name(other);
+			name = bla_trunk_ref_name(other);
 		case OBJ_SEARCH_KEY:
-			if (strncmp(bla_trunk_name(self), name, AST_MAX_CONTEXT) == 0)
+			if (strncmp(bla_trunk_ref_name(self), name, AST_MAX_CONTEXT) == 0)
 				found = 1;
 			break;
 		case OBJ_SEARCH_PARTIAL_KEY:
-			if (strncmp(bla_trunk_name(self), name, strnlen(name, AST_MAX_CONTEXT)) == 0)
+			if (strncmp(bla_trunk_ref_name(self), name, strnlen(name, AST_MAX_CONTEXT)) == 0)
 				found = 1;
 			break;
 		default:

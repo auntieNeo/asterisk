@@ -46,6 +46,17 @@ static struct bla_station *bla_config_alloc_station(
 static struct bla_station *bla_config_find_station(
 	struct ao2_container *container,
 	const char *category);
+static int bla_config_handle_station_trunk(
+	const struct aco_option *opt,
+	struct ast_variable *var,
+	struct bla_station *station);
+
+static struct bla_trunk *bla_config_alloc_trunk(
+	const char *category);
+static struct bla_trunk *bla_config_find_trunk(
+	struct ao2_container *container,
+	const char *category);
+
 static struct aco_type bla_station_type = {
 	.type = ACO_ITEM,
 	.name = "station",
@@ -58,11 +69,6 @@ static struct aco_type bla_station_type = {
 };
 static struct aco_type *bla_station_types[] = { &bla_station_type };
 
-static struct bla_trunk *bla_config_alloc_trunk(
-	const char *category);
-static struct bla_trunk *bla_config_find_trunk(
-	struct ao2_container *container,
-	const char *category);
 static struct aco_type bla_trunk_type = {
 	.type = ACO_ITEM,
 	.name = "trunk",
@@ -136,6 +142,8 @@ int bla_config_init(struct bla_config *self)
 	aco_option_register(&bla_config_info, "type", ACO_EXACT, bla_station_types, NULL, OPT_NOOP_T, 0, 0);
 	/* FIXME: This can't handle multiple trunk strings */
 /*	aco_option_register(&bla_config_info, "trunk", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _trunk)); */
+	aco_option_register_custom(&bla_config_info, "trunk", ACO_EXACT, bla_station_types, "", (aco_option_handler)bla_config_handle_station_trunk, 0);
+	aco_option_register(&bla_config_info, "device", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _device));
 
 	/* BLA trunk options */
 	aco_option_register(&bla_config_info, "type", ACO_EXACT, bla_trunk_types, NULL, OPT_NOOP_T, 0, 0);
@@ -184,6 +192,20 @@ static struct bla_station *bla_config_find_station(
 	const char *category)
 {
 	return ao2_find(container, category, OBJ_SEARCH_KEY);
+}
+
+static int bla_config_handle_station_trunk(
+	const struct aco_option *opt,
+	struct ast_variable *var,
+	struct bla_station *station)
+{
+	/* TODO: Add a trunk to the station */
+	const char *trunk_name = var->value;
+	bla_station_add_trunk(station, trunk_name);
+	/* TODO: Find the trunk named thusly add add the station to it */
+	/* FIXME: We must validate the existance of this trunk _after_ adding everything */
+
+	return 0;
 }
 
 static struct bla_trunk *bla_config_alloc_trunk(
