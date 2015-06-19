@@ -50,12 +50,15 @@ static int bla_exec_station(struct ast_channel *chan, const char *data)
 		AST_APP_ARG(trunk_name);
 	);
 
+	ast_log(LOG_NOTICE, "Entering BLAStation() application");
+
 	/* Parse the application arguments */
 	parse = ast_strdupa(data);
 	AST_STANDARD_APP_ARGS(args, parse);
 
 	/* Check for missing station argument */
 	if ((args.station_name == NULL) || ast_strlen_zero(args.station_name)) {
+		ast_log(LOG_ERROR, "Failed to start BLAStation(); missing station argument");
 		pbx_builtin_setvar_helper(chan, "BLA_RESULT", "FAILED");
 		return -1;
 	}

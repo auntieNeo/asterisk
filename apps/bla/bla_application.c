@@ -106,6 +106,9 @@ int bla_application_exec_station(
 				"Error executing BLAStation(): no idle trunks for station '%s'",
 				station_name);
 		}
+		ast_log(LOG_NOTICE,
+			"Found idle trunk '%s' for station '%s' in BLAStation()",
+			bla_trunk_name(trunk), bla_station_name(station));
 	} else {
 		/* TODO: If the trunk name is not empty, make sure it exists and is available */
 			/* TODO: If the trunk is on hold by us, take it off hold */
