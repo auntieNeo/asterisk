@@ -105,7 +105,7 @@ int bla_station_hash(void *arg, int flags);
 
 int bla_station_cmp(
 	const struct bla_station *self,
-	const struct bla_station *other,
+	void *arg,
 	int flags);
 
 #endif
