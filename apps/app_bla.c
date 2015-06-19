@@ -89,7 +89,7 @@ static int load_module(void)
 		"This is the application that BLA stations should execute "
 		"in the dialplan when taken off the hook or dialing a trunk");
 
-	result |= ast_register_application(bla_station_app, bla_exec_trunk,
+	result |= ast_register_application(bla_trunk_app, bla_exec_trunk,
 		"BLA application for trunks dialing in",
 		"This is the application that BLA trunks should execute "
 		"in the dialplan when dialing into Asterisk.");
