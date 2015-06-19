@@ -97,7 +97,7 @@ int bla_application_exec_station(
 	}
 
 	/* Check if the trunk name is empty */
-	if (ast_strlen_zero(trunk_name)) {
+	if ((trunk_name == NULL) || ast_strlen_zero(trunk_name)) {
 		/* Look for an idle trunk */
 		trunk = bla_station_find_idle_trunk(station, self);
 		if (trunk == NULL)

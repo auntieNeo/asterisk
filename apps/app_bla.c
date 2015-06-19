@@ -54,13 +54,13 @@ static int bla_exec_station(struct ast_channel *chan, const char *data)
 	parse = ast_strdupa(data);
 	AST_STANDARD_APP_ARGS(args, parse);
 
-	/* Check for obviously invalid arguments */
-	if (ast_strlen_zero(args.station_name)) {
+	/* Check for missing station argument */
+	if ((args.station_name == NULL) || ast_strlen_zero(args.station_name)) {
 		pbx_builtin_setvar_helper(chan, "BLA_RESULT", "FAILED");
 		return -1;
 	}
 
-	return bla_application_exec_station(app, chan, args.trunk_name, args.station_name);
+	return bla_application_exec_station(app, chan, args.station_name, args.trunk_name);
 }
 
 static int bla_exec_trunk(struct ast_channel *chan, const char *args)
