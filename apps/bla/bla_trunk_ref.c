@@ -21,6 +21,8 @@
 #include "asterisk/channel.h"
 #include "asterisk/utils.h"
 
+#include "bla_application.h"
+
 #include "bla_trunk_ref.h"
 
 int bla_trunk_ref_init(struct bla_trunk_ref *self)
@@ -33,6 +35,16 @@ int bla_trunk_ref_destroy(struct bla_trunk_ref *self)
 {
 	ast_free(self->_name);
 	return 0;
+}
+
+
+struct bla_trunk *bla_trunk_ref_deref(
+	struct bla_trunk_ref *self,
+	struct bla_application *app)
+{
+	/* FIXME: This could probably be static */
+	/* Find the trunk with our name inside app */
+	return bla_application_find_trunk(app, bla_trunk_ref_name(self));
 }
 
 int bla_trunk_ref_hash(void *arg, int flags)

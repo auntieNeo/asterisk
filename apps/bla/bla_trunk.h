@@ -27,7 +27,7 @@ struct ao2_container;
 #include "asterisk/channel.h"
 
 struct bla_trunk {
-	struct ao2_container *_stations;  /* Actually bla_station_ref's */
+	struct ao2_container *_station_refs;
 	char *_name;
 	char *_device;
 };
@@ -69,6 +69,19 @@ static force_inline struct bla_trunk *bla_trunk_alloc(void)
 {
 	return ao2_alloc(sizeof(struct bla_trunk), (ao2_destructor_fn)bla_trunk_destroy);
 }
+
+void bla_trunk_add_station(struct bla_trunk *self, const char *station_name);
+
+/*!
+ * \brief Determine if a trunk is idle
+ * \param self Pointer to the BLA trunk object
+ * \retval non-zero if trunk is indeed idle
+ * \retval zero if the trunk is not idle
+ *
+ * This function determines if the given trunk is idle (i.e. not on hold or
+ * already bridged with a station).
+ */
+int bla_trunk_is_idle(struct bla_trunk *self);
 
 int bla_trunk_hash(void *arg, int flags);
 

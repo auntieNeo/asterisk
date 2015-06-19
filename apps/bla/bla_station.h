@@ -21,13 +21,14 @@
 
 /* Forward declarations */
 struct ao2_container;
+struct bla_application;
 
 #include "asterisk.h"
 
 #include "asterisk/channel.h"
 
 struct bla_station {
-	struct ao2_container *_trunks;  /* Actually bla_trunk_ref's */
+	struct ao2_container *_trunk_refs;
 	char *_name;
 	char *_device;
 };
@@ -53,6 +54,19 @@ static force_inline void bla_station_set_name(struct bla_station *self, const ch
 	strncpy(self->_name, name, AST_MAX_CONTEXT);
 }
 
+/*!
+ * \brief Accessor for bla_station object's trunk references
+ * \return ao2_container of trunk_ref objects
+ *
+ * This accessor function returns a pointer to the container holding this
+ * station's trunk references. This pointer should not be stored and the
+ * container should not be modified directly.
+ */
+static force_inline const struct ao2_container *bla_station_trunk_refs(const struct bla_station *self)
+{
+	return self->_trunk_refs;
+}
+
 int bla_station_init(struct bla_station *self);
 
 int bla_station_destroy(struct bla_station *self);
@@ -71,6 +85,21 @@ static force_inline struct bla_station *bla_station_alloc(void)
 }
 
 void bla_station_add_trunk(struct bla_station *self, const char *trunk_name);
+
+/*!
+ * \brief Find a trunk that is idle on this station
+ * \param self Pointer to the BLA station object
+ * \param app Pointer to the BLA application object (used to resolve trunk names)
+ * \retval Pointer to an idle bla_trunk on success
+ * \retval NULL on failure to find suitable trunk
+ *
+ * This function uses various criteria (order of the trunks assigned to this
+ * station, which trunks are not in use, etc.) to determine the best possible
+ * trunk for this station to connect to. If no suitable trunks are found.
+ */
+struct bla_trunk *bla_station_find_idle_trunk(
+	struct bla_station *self,
+	struct bla_application *app);
 
 int bla_station_hash(void *arg, int flags);
 

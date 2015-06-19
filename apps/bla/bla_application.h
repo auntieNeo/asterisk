@@ -75,8 +75,76 @@ static force_inline struct bla_application *bla_application_alloc(void)
  */
 int bla_application_read_config(struct bla_application *self);
 
-int bla_application_exec_station(struct bla_application *self, struct ast_channel *chan);
+int bla_application_exec_station(
+	struct bla_application *self,
+	struct ast_channel *chan,
+	const char *station_name,
+	const char *trunk_name);
 
-int bla_application_exec_trunk(struct bla_application *self, struct ast_channel *chan);
+/*!
+ * \brief Connect the given BLA station to any available trunk
+ * \param self Pointer to the BLA application object
+ * \param chan Channel of the connecting station
+ * \param station_name Name of the connecting station
+ * \retval 0 on success
+ * \retval non-zero on failure
+ *
+ * This function selects a trunk from the trunks available to the given station
+ * and connects the station to that trunk. The function blocks while ringing the
+ * trunk, bridging the trunk's channel with the station's channel, and until
+ * the station hangs up.
+ *
+ * This function corresponds with the BLAStation() application called with a
+ * station parameter but without a trunk parameter.
+ *
+ * \sa bla_application_connect_station_trunk()
+ */
+int bla_application_connect_station(
+	struct bla_application *self,
+	struct ast_channel *chan,
+	const char *station_name);
+
+int bla_application_connect_station_trunk(
+	struct bla_application *self,
+	struct ast_channel *chan,
+	const char *station_name,
+	const char *trunk_name);
+
+int bla_application_connect_trunk(
+	struct bla_application *self,
+	struct ast_channel *chan,
+	const char *trunk_name);
+
+/*!
+ * \brief Find the BLA station with the given name
+ * \param self Pointer to the BLA application object
+ * \param station_name Name of the station to look for
+ * \retval Pointer to the BLA station object on success
+ * \retval NULL on failure
+ *
+ * Finds the BLA station with the given station name. If a station with that
+ * name is found, the returned value is a pointer to that station. The
+ * reference count on the ao2 object is increased by one, as in the behavior of
+ * the ao2_find() function.
+ */
+struct bla_station *bla_application_find_station(
+	struct bla_application *self,
+	const char *station_name);
+
+/*!
+ * \brief Find the BLA trunk with the given name
+ * \param self Pointer to the BLA application object
+ * \param trunk_name Name of the trunk to look for
+ * \retval Pointer to the BLA trunk object on success
+ * \retval NULL on failure
+ *
+ * Finds the BLA trunk with the given trunk name. If a trunk with that
+ * name is found, the returned value is a pointer to that trunk. The
+ * reference count on the ao2 object is increased by one, as in the behavior of
+ * the ao2_find() function.
+ */
+struct bla_trunk *bla_application_find_trunk(
+	struct bla_application *self,
+	const char *trunk_name);
 
 #endif

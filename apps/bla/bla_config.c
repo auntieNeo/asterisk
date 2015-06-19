@@ -18,12 +18,12 @@
 
 #include "asterisk.h"
 
-ASTERISK_REGISTER_FILE()
 #include "asterisk/config_options.h"
 #include "asterisk/logger.h"
 
 #include "bla_station.h"
 #include "bla_trunk.h"
+#include "bla_trunk_ref.h"
 
 #include "bla_config.h"
 
@@ -57,6 +57,10 @@ static struct bla_trunk *bla_config_find_trunk(
 	struct ao2_container *container,
 	const char *category);
 
+static int bla_config_check_references(struct bla_config *self);
+
+static int bla_config_pre_apply_config(void);
+
 static struct aco_type bla_station_type = {
 	.type = ACO_ITEM,
 	.name = "station",
@@ -88,11 +92,6 @@ static struct aco_file bla_conf = {
 
 static AO2_GLOBAL_OBJ_STATIC(bla_global_config);
 
-CONFIG_INFO_STANDARD(bla_config_info, bla_global_config, NULL,
-	.files = ACO_FILES(&bla_conf),
-	.hidden = 1,  /* FIXME: This is a hack to avoid having to get the XML documentation working */
-)
-
 /* The following emulates a sort of lambda pattern given only this C callback
  * from config_options.h:
  *
@@ -115,6 +114,12 @@ static aco_snapshot_alloc bla_config_get_dummy_alloc(struct bla_config *self)
 
 	return bla_config_alloc_dummy;
 }
+
+CONFIG_INFO_STANDARD(bla_config_info, bla_global_config, bla_config_alloc_dummy,
+	.files = ACO_FILES(&bla_conf),
+	.pre_apply_config = bla_config_pre_apply_config,
+	.hidden = 1,  /* FIXME: This is a hack to avoid having to get the XML documentation working */
+)
 
 int bla_config_init(struct bla_config *self)
 {
@@ -171,6 +176,8 @@ int bla_config_read(struct bla_config *self)
 	if (aco_process_config(&bla_config_info, 0) == ACO_PROCESS_ERROR)
 		return -1;
 
+	bla_config_check_references(self);
+
 	return 0;
 }
 
@@ -226,4 +233,56 @@ static struct bla_trunk *bla_config_find_trunk(
 	const char *category)
 {
 	return ao2_find(container, category, OBJ_SEARCH_KEY);
+}
+
+static int bla_config_check_references(struct bla_config *self)
+{
+	/* Iterate through all of the stations */
+	struct ao2_iterator i;
+	struct bla_station *station;
+	i = ao2_iterator_init(self->_stations, 0);
+	while ((station = ao2_iterator_next(&i))) {
+		/* Iterate through every station's trunk references */
+		struct ao2_iterator j;
+		struct bla_trunk_ref *trunk_ref;
+		/* NOTE: No choice here but to cast away const for container; don't modify anything! */
+		j = ao2_iterator_init((struct ao2_container *)bla_station_trunk_refs(station), 0);
+		while ((trunk_ref = ao2_iterator_next(&j))) {
+			struct bla_trunk *trunk;
+			trunk = ao2_find(
+				self->_trunks,
+				bla_trunk_ref_name(trunk_ref),
+				OBJ_SEARCH_KEY);
+			ao2_ref(trunk_ref, -1);
+			if (trunk == NULL) {
+				/* Found a bad trunk reference; just bail out */
+				ast_log(LOG_ERROR,
+					"Could not find BLA trunk '%s' for BLA station '%s'",
+					bla_trunk_ref_name(trunk_ref),
+					bla_station_name(station));
+				return -1;
+			}
+			/* Since the trunk exists, give it a reference to the station */
+			bla_trunk_add_station(trunk, bla_station_name(station));
+		}
+        	ao2_iterator_destroy(&j);
+		ao2_ref(station, -1);
+	}
+        ao2_iterator_destroy(&i);
+
+	return 0;
+}
+
+static int bla_config_pre_apply_config(void)
+{
+	struct bla_config *config = aco_pending_config(&bla_config_info);
+
+	/* Make sure all trunk and station references check out */
+	if (bla_config_check_references(config)) {
+		ast_log(LOG_ERROR,
+			"Error while parsing trunk/station references in BLA config");
+		return -1;
+	}
+
+	return 0;
 }

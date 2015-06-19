@@ -19,6 +19,9 @@
 #ifndef _BLA_TRUNK_REF_H
 #define _BLA_TRUNK_REF_H
 
+/* Forward declarations */
+struct bla_application;
+
 struct bla_trunk_ref {
 	char *_name;
 };
@@ -60,6 +63,18 @@ static force_inline struct bla_trunk_ref *bla_trunk_ref_alloc(void)
 {
 	return ao2_alloc(sizeof(struct bla_trunk_ref), (ao2_destructor_fn)bla_trunk_ref_destroy);
 }
+
+/*!
+ * \brief Dereference a bla_trunk_ref object into a bla_trunk object
+ * \param self Pointer to the BLA trunk ref object
+ * \param app Pointer to the BLA application
+ *
+ * This function "dereferences" a trunk reference object, which is to say that
+ * it looks for the trunk with the trunk reference's name inside of app.
+ */
+struct bla_trunk *bla_trunk_ref_deref(
+	struct bla_trunk_ref *self,
+	struct bla_application *app);
 
 int bla_trunk_ref_hash(void *arg, int flags);
 

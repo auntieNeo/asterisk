@@ -32,8 +32,7 @@ int bla_trunk_init(struct bla_trunk *self)
 
 	self->_name = malloc(AST_MAX_CONTEXT);
 	self->_name[0] = '\0';
-	/* self->_stations is actually a collection of bla_station_ref's */
-	self->_stations = ao2_container_alloc(
+	self->_station_refs = ao2_container_alloc(
 		  1,
 		  (ao2_hash_fn*)bla_station_ref_hash,
 		  (ao2_callback_fn*)bla_station_ref_cmp);
@@ -43,10 +42,28 @@ int bla_trunk_init(struct bla_trunk *self)
 
 int bla_trunk_destroy(struct bla_trunk *self)
 {
-	ao2_ref(self->_stations, -1);
+	ao2_ref(self->_station_refs, -1);
 	free(self->_name);
 
 	return 0;
+}
+
+void bla_trunk_add_station(struct bla_trunk *self, const char *station_name)
+{
+	struct bla_station_ref *station_ref;
+
+	station_ref = bla_station_ref_alloc();
+	bla_station_ref_init(station_ref);
+	bla_station_ref_set_name(station_ref, station_name);
+
+	ao2_link(self->_station_refs, station_ref);
+	ao2_ref(station_ref, -1);
+}
+
+int bla_trunk_is_idle(struct bla_trunk *self)
+{
+	/* FIXME: Actually check if the trunk is idle here */
+	return 1;
 }
 
 int bla_trunk_hash(void *arg, int flags)

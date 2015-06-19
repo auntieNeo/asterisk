@@ -29,15 +29,37 @@ struct bla_station_ref {
  *
  * This accessor function simply returns the bla_station_ref object's name.
  */
-
 static force_inline const char *bla_station_ref_name(const struct bla_station_ref *self)
 {
 	return self->_name;
 }
 
+/*!
+ * \brief Accessor for setting bla_station_ref object's name
+ *
+ * This accessor function simply sets the bla_station_ref object's name.
+ */
+static force_inline void bla_station_ref_set_name(const struct bla_station_ref *self, const char *name)
+{
+	strncpy(self->_name, name, AST_MAX_CONTEXT);
+}
+
 int bla_station_ref_init(struct bla_station_ref *self);
 
 int bla_station_ref_destroy(struct bla_station_ref *self);
+
+/*!
+ * \brief Allocate a bla_station_ref object
+ * \return Pointer to bla_station_ref object allocated with ao2_alloc()
+ *
+ * This is a convenience function for allocating a bla_station_ref object. The
+ * returned bla_station_ref object is an astobj2 object with one reference
+ * count on it.
+ */
+static force_inline struct bla_station_ref *bla_station_ref_alloc(void)
+{
+	return ao2_alloc(sizeof(struct bla_station_ref), (ao2_destructor_fn)bla_station_ref_destroy);
+}
 
 int bla_station_ref_hash(void *arg, int flags);
 

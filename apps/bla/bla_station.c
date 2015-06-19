@@ -33,8 +33,7 @@ int bla_station_init(struct bla_station *self)
 
 	self->_name = malloc(AST_MAX_CONTEXT);
 	self->_name[0] = '\0';
-	/* self->_trunks is actually a collection of bla_trunk_ref's */
-	self->_trunks = ao2_container_alloc(
+	self->_trunk_refs = ao2_container_alloc(
 		  1,
 		  (ao2_hash_fn*)bla_trunk_ref_hash,
 		  (ao2_callback_fn*)bla_trunk_ref_cmp);
@@ -44,7 +43,7 @@ int bla_station_init(struct bla_station *self)
 
 int bla_station_destroy(struct bla_station *self)
 {
-	ao2_ref(self->_trunks, -1);
+	ao2_ref(self->_trunk_refs, -1);
 	free(self->_name);
 
 	return 0;
@@ -58,8 +57,31 @@ void bla_station_add_trunk(struct bla_station *self, const char *trunk_name)
 	bla_trunk_ref_init(trunk_ref);
 	bla_trunk_ref_set_name(trunk_ref, trunk_name);
 
-	ao2_link(self->_trunks, trunk_ref);
+	ao2_link(self->_trunk_refs, trunk_ref);
 	ao2_ref(trunk_ref, -1);
+}
+
+struct bla_trunk *bla_station_find_idle_trunk(struct bla_station *self, struct bla_application *app)
+{
+	struct bla_trunk *result = NULL;
+
+	/* Iterate over this station's trunks */
+	struct bla_trunk_ref *trunk_ref;
+	struct ao2_iterator i;
+	i = ao2_iterator_init(self->_trunk_refs, 0);
+	while ((trunk_ref = ao2_iterator_next(&i))) {
+		struct bla_trunk *trunk = bla_trunk_ref_deref(trunk_ref, app);
+		/* Return with the first trunk that is not in use */
+		if (bla_trunk_is_idle(trunk)) {
+			ao2_ref(trunk_ref, -1);
+			result = trunk;
+			break;
+		}
+		ao2_ref(trunk, -1);
+		ao2_ref(trunk_ref, -1);
+	}
+
+	return result;
 }
 
 int bla_station_hash(void *arg, int flags)
