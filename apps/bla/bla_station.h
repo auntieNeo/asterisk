@@ -29,8 +29,8 @@ struct bla_application;
 
 struct bla_station {
 	struct ao2_container *_trunk_refs;
-	char *_name;
-	char *_device;
+	char _name[AST_MAX_CONTEXT];
+	char _device[AST_MAX_CONTEXT];
 };
 
 /*!
@@ -51,7 +51,8 @@ static force_inline const char *bla_station_name(const struct bla_station *self)
  */
 static force_inline void bla_station_set_name(struct bla_station *self, const char *name)
 {
-	strncpy(self->_name, name, AST_MAX_CONTEXT);
+	strncpy((char *)self->_name, name, AST_MAX_CONTEXT);
+  self->_name[AST_MAX_CONTEXT - 1] = '\0';
 }
 
 /*!

@@ -28,8 +28,8 @@ struct ao2_container;
 
 struct bla_trunk {
 	struct ao2_container *_station_refs;
-	char *_name;
-	char *_device;
+	char _name[AST_MAX_CONTEXT];
+	char _device[AST_MAX_CONTEXT];
 };
 
 /*!
@@ -48,9 +48,10 @@ static force_inline const char *bla_trunk_name(const struct bla_trunk *self)
  *
  * This accessor function simply sets the bla_trunk object's name.
  */
-static force_inline void bla_trunk_set_name(const struct bla_trunk *self, const char *name)
+static force_inline void bla_trunk_set_name(struct bla_trunk *self, const char *name)
 {
 	strncpy(self->_name, name, AST_MAX_CONTEXT);
+	self->_name[AST_MAX_CONTEXT - 1] = '\0';
 }
 
 /*!

@@ -249,7 +249,7 @@ static int bla_trunk_type_prelink(void *newitem)
 		return -1;
 	}
 
-	return -1;
+	return 0;
 }
 
 static int bla_config_check_references(struct bla_config *self)

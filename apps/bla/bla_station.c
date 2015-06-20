@@ -32,8 +32,8 @@ int bla_station_init(struct bla_station *self)
 {
 	ast_log(LOG_NOTICE, "Initializing BLA station");
 
-	self->_name = malloc(AST_MAX_CONTEXT);
 	self->_name[0] = '\0';
+	self->_device[0] = '\0';
 	self->_trunk_refs = ao2_container_alloc(
 		  1,
 		  (ao2_hash_fn*)bla_trunk_ref_hash,
@@ -45,7 +45,6 @@ int bla_station_init(struct bla_station *self)
 int bla_station_destroy(struct bla_station *self)
 {
 	ao2_ref(self->_trunk_refs, -1);
-	free(self->_name);
 
 	return 0;
 }
