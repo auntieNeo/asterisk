@@ -108,7 +108,13 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 
 	/* TODO: Wait for the dial state to change */
 
+	/* Signal the station thread to continue */
+	ast_mutex_lock(&args->lock);
+	ast_cond_signal(&args->done);
+	ast_mutex_unlock(&args->lock);
+
 	/* TODO: Join the bridge */
+
 
 	return NULL;
 }
@@ -125,9 +131,10 @@ int bla_station_dial_trunk(
 
 	ast_mutex_init(&args.lock);
 	ast_cond_init(&args.done, NULL);
-	/* TODO: Create a thread to dial, ring, and join the trunk to our bridge */
+	/* Create a thread to dial, ring, and join the trunk to our bridge */
 	ast_log(LOG_NOTICE, "Station '%s' thread for BLA dial trunk thread",
 		bla_station_name(self));
+	ast_mutex_lock(&args.lock);
 	ast_pthread_create_detached_background(
 		&thread, NULL, (void *(*)(void*))bla_station_dial_trunk_thread, &args);
 	ast_cond_wait(&args.done, &args.lock);
