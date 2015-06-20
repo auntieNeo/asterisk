@@ -103,8 +103,10 @@ int bla_application_exec_station(
 		if (trunk == NULL)
 		{
 			ast_log(LOG_ERROR,
-				"Error executing BLAStation(): no idle trunks for station '%s'",
+				"Error executing BLAStation(): no idle trunks available for station '%s'",
 				station_name);
+      pbx_builtin_setvar_helper(chan, "BLA_RESULT", "FAILED");
+      return -1;
 		}
 		ast_log(LOG_NOTICE,
 			"Found idle trunk '%s' for station '%s' in BLAStation()",
@@ -113,9 +115,17 @@ int bla_application_exec_station(
 		/* TODO: If the trunk name is not empty, make sure it exists and is available */
 			/* TODO: If the trunk is on hold by us, take it off hold */
 			/* TODO: If the trunk is not idle, make sure it has the barge option set */
+		ast_log(LOG_ERROR, "FIXME: specific trunk connection hasn't been implemented for BLA");
+		pbx_builtin_setvar_helper(chan, "BLA_RESULT", "FAILED");
+		return -1;
 	}
 
+	/* TODO: Decide what to do with the station "off the hook" */
+	/* TODO: Check for the phone on hold here? */
+	/* TODO: Check if the trunk is ringing here? */
+
 	/* TODO: Ring the trunk */
+	bla_station_dial_trunk(station, trunk);
 
 	/* TODO: Bridge the station and trunk channels */
 

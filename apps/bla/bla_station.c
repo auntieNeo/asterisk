@@ -61,6 +61,11 @@ void bla_station_add_trunk(struct bla_station *self, const char *trunk_name)
 	ao2_ref(trunk_ref, -1);
 }
 
+struct bla_trunk_ref *bla_station_find_trunk_ref(struct bla_station *self, const char *trunk_name)
+{
+	return ao2_find(self->_trunk_refs, trunk_name, OBJ_SEARCH_KEY);
+}
+
 struct bla_trunk *bla_station_find_idle_trunk(struct bla_station *self, struct bla_application *app)
 {
 	struct bla_trunk *result = NULL;
@@ -82,6 +87,57 @@ struct bla_trunk *bla_station_find_idle_trunk(struct bla_station *self, struct b
 	}
 
 	return result;
+}
+
+struct bla_dial_trunk_args {
+	struct bla_station *station;
+	struct bla_trunk *trunk;
+	ast_cond_t done;
+	ast_mutex_t lock;
+};
+
+static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
+{
+	ast_log(LOG_NOTICE, "Entered dial trunk thread for station '%s' dialing trunk '%s'",
+		bla_station_name(args->station),
+		bla_trunk_name(args->trunk));
+
+	/* TODO: Dial the trunk */
+
+	/* TODO: Check that the trunk is being dialed */
+
+	/* TODO: Wait for the dial state to change */
+
+	/* TODO: Join the bridge */
+
+	return NULL;
+}
+
+int bla_station_dial_trunk(
+	struct bla_station *self,
+	struct bla_trunk *trunk)
+{
+	struct bla_dial_trunk_args args = {
+		.station = self,
+		.trunk = trunk,
+	};
+	pthread_t thread;
+
+	ast_mutex_init(&args.lock);
+	ast_cond_init(&args.done, NULL);
+	/* TODO: Create a thread to dial, ring, and join the trunk to our bridge */
+	ast_log(LOG_NOTICE, "Station '%s' thread for BLA dial trunk thread",
+		bla_station_name(self));
+	ast_pthread_create_detached_background(
+		&thread, NULL, (void *(*)(void*))bla_station_dial_trunk_thread, &args);
+	ast_cond_wait(&args.done, &args.lock);
+	ast_log(LOG_NOTICE, "Station '%s' thread finished waiting for BLA dial trunk thread",
+		bla_station_name(self));
+	ast_mutex_unlock(&args.lock);
+	ast_mutex_destroy(&args.lock);
+	ast_cond_destroy(&args.done);
+
+	return 0;
 }
 
 int bla_station_hash(void *arg, int flags)

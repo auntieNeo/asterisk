@@ -87,6 +87,18 @@ static force_inline struct bla_station *bla_station_alloc(void)
 void bla_station_add_trunk(struct bla_station *self, const char *trunk_name);
 
 /*!
+ * \brief Get station trunk ref with the given name
+ * \retval Pointer to the bla_trunk_ref object when found
+ * \retval NULL on failure to find trunk ref
+ *
+ * This function looks for the station's trunk ref with the given name. If such
+ * a trunk ref can be found, the ao2 reference count on the trunk ref is
+ * incremented and a pointer to the trunk ref is returned.
+ */
+struct bla_trunk_ref *bla_station_find_trunk_ref(struct bla_station *self, const char *name);
+
+
+/*!
  * \brief Find a trunk that is idle on this station
  * \param self Pointer to the BLA station object
  * \param app Pointer to the BLA application object (used to resolve trunk names)
@@ -100,6 +112,26 @@ void bla_station_add_trunk(struct bla_station *self, const char *trunk_name);
 struct bla_trunk *bla_station_find_idle_trunk(
 	struct bla_station *self,
 	struct bla_application *app);
+
+/*!
+ * \brief Dial a trunk on behalf of this station
+ * \param self Pointer to the BLA station object
+ * \param trunk Trunk that will be dialed
+ * \param app pointer to the BLA application 
+ * \retval 0 on successful 
+ * \retval non-zero on failure to reach the trunk
+ *
+ * This function dials the given trunk on behalf of this station. This function
+ * blocks for as long as the trunk is ringing. If the trunk answers the call,
+ * as soon as the trunk answers it is bridged with BLA (on a new thread) and
+ * this function returns.
+ *
+ * When this function returns zero, the caller knows that the trunk has
+ * successfully bridged with BLA.
+ */
+int bla_station_dial_trunk(
+	struct bla_station *self,
+	struct bla_trunk *trunk);
 
 int bla_station_hash(void *arg, int flags);
 
