@@ -56,6 +56,7 @@ static struct bla_trunk *bla_config_alloc_trunk(
 static struct bla_trunk *bla_config_find_trunk(
 	struct ao2_container *container,
 	const char *category);
+static int bla_trunk_type_prelink(void *newitem);
 
 static int bla_config_check_references(struct bla_config *self);
 
@@ -82,6 +83,8 @@ static struct aco_type bla_trunk_type = {
 	.item_alloc = (aco_type_item_alloc)bla_config_alloc_trunk,
 	.item_find = (aco_type_item_find)bla_config_find_trunk,
 	.item_offset = offsetof(struct bla_config, _trunks),
+	/* FIXME: Adding item_prelink just seems to segfault */
+        .item_prelink = bla_trunk_type_prelink,
 };
 static struct aco_type *bla_trunk_types[] = { &bla_trunk_type };
 
@@ -233,6 +236,20 @@ static struct bla_trunk *bla_config_find_trunk(
 	const char *category)
 {
 	return ao2_find(container, category, OBJ_SEARCH_KEY);
+}
+
+static int bla_trunk_type_prelink(void *newitem)
+{
+	struct bla_trunk *trunk = (struct bla_trunk *)newitem;
+
+	/* TODO: Make sure trunk device is set (it is required) */
+	if ((bla_trunk_device(trunk) == NULL) || ast_strlen_zero(bla_trunk_device(trunk))) {
+		ast_log(LOG_ERROR, "Trunk device not specified for BLA trunk '%s'",
+			bla_trunk_name(trunk));
+		return -1;
+	}
+
+	return -1;
 }
 
 static int bla_config_check_references(struct bla_config *self)

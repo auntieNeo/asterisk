@@ -53,6 +53,17 @@ static force_inline void bla_trunk_set_name(const struct bla_trunk *self, const 
 	strncpy(self->_name, name, AST_MAX_CONTEXT);
 }
 
+/*!
+ * \brief Accessor for bla_trunk object's device
+ * \return bla_trunk device as char array
+ *
+ * This accessor function simply returns the bla_trunk object's device.
+ */
+static force_inline const char *bla_trunk_device(const struct bla_trunk *self)
+{
+	return self->_device;
+}
+
 int bla_trunk_init(struct bla_trunk *self);
 
 int bla_trunk_destroy(struct bla_trunk *self);

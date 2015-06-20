@@ -19,6 +19,7 @@
 #include "asterisk.h"
 
 #include "asterisk/channel.h"
+#include "asterisk/dial.h"
 #include "asterisk/logger.h"
 #include "asterisk/strings.h"
 
@@ -98,11 +99,26 @@ struct bla_dial_trunk_args {
 
 static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 {
+	RAII_VAR(struct ast_dial *, dial, ast_dial_create(), ast_dial_destroy);
+
 	ast_log(LOG_NOTICE, "Entered dial trunk thread for station '%s' dialing trunk '%s'",
 		bla_station_name(args->station),
 		bla_trunk_name(args->trunk));
 
 	/* TODO: Dial the trunk */
+	char *device = ast_strdupa(bla_trunk_device(args->trunk));
+	char *tech = strsep(&device, "/");
+	if (ast_dial_append(dial, tech, device, NULL) == -1) {
+		ast_log(LOG_ERROR, "Failed to dial BLA trunk '%s'",
+			bla_trunk_name(args->trunk));
+		/* Signal the station thread to continue */
+		ast_mutex_lock(&args->lock);
+		ast_cond_signal(&args->done);
+		ast_mutex_unlock(&args->lock);
+		return NULL;
+	}
+	ast_log(LOG_NOTICE, "Dialing BLA trunk '%s' with tech '%s' and device '%s'",
+		bla_trunk_name(args->trunk), tech, device);
 
 	/* TODO: Check that the trunk is being dialed */
 
