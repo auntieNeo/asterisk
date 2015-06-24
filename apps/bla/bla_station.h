@@ -117,7 +117,8 @@ struct bla_trunk *bla_station_find_idle_trunk(
 /*!
  * \brief Dial a trunk on behalf of this station
  * \param self Pointer to the BLA station object
- * \param trunk Trunk that will be dialed
+ * \param station_chan Pointer to the channel connecting as this station
+ * \param trunk Pointer to the BLA trunk that will be dialed
  * \param app pointer to the BLA application 
  * \retval 0 on successful 
  * \retval non-zero on failure to reach the trunk
@@ -132,6 +133,7 @@ struct bla_trunk *bla_station_find_idle_trunk(
  */
 int bla_station_dial_trunk(
 	struct bla_station *self,
+  struct ast_channel *station_chan,
 	struct bla_trunk *trunk);
 
 int bla_station_hash(void *arg, int flags);

@@ -89,13 +89,51 @@ struct bla_trunk *bla_station_find_idle_trunk(struct bla_station *self, struct b
 	return result;
 }
 
-struct bla_dial_trunk_args {
+
+struct bla_dial_trunk_wait_args {
 	struct bla_station *station;
 	struct bla_trunk *trunk;
+	/* Mutex/cond pair to wait for response from dialed trunk */
 	ast_cond_t done;
 	ast_mutex_t lock;
 };
+static void bla_station_dial_trunk_wait(struct ast_dial *dial)
+{
+	enum ast_dial_result state;
+	int done = 0;
 
+	struct bla_dial_trunk_wait_args *args = ast_dial_get_user_data(dial);
+
+	state = ast_dial_state(dial);
+	ast_log(LOG_NOTICE, "BLA trunk '%s' dial state: '%d'",
+		bla_trunk_name(args->trunk), state);
+	/*
+	switch (state) {
+		case AST_DIAL_RESULT_ANSWERED:
+			ast_log(LOG_NOTICE, "BLA trunk '%s' answered call from station '%s'",
+				bla_trunk_name(args->trunk), bla_station_name(args->station));
+		case AST_DIAL_RESULT_FAILED:
+		case AST_DIAL_RESULT_HANGUP:
+		case AST_DIAL_RESULT_INVALID:
+		case AST_DIAL_RESULT_TIMEOUT:
+		case AST_DIAL_RESULT_UNANSWERED:
+			done = 1;
+			break;
+		case AST_DIAL_RESULT_TRYING:
+			// current_state = AST_CONTROL_PROGRESS;
+			break;
+	}
+	*/
+}
+
+struct bla_dial_trunk_args {
+	struct bla_station *station;
+	struct ast_channel *station_chan;
+	struct bla_trunk *trunk;
+  	/* Mutex/cond pair to signal station thread from trunk thread */
+	ast_cond_t done;
+	ast_mutex_t lock;
+};
 static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 {
 	RAII_VAR(struct ast_dial *, dial, ast_dial_create(), ast_dial_destroy);
@@ -119,9 +157,40 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 	ast_log(LOG_NOTICE, "Dialing BLA trunk '%s' with tech '%s' and device '%s'",
 		bla_trunk_name(args->trunk), tech, device);
 
-	/* TODO: Check that the trunk is being dialed */
+	/* Set wait callback to notify us of changes to dial state */
+	struct bla_dial_trunk_wait_args wait_args;
+	wait_args.station = args->station;
+	wait_args.trunk = args->trunk;
+	ast_mutex_init(&wait_args.lock);
+	ast_cond_init(&wait_args.done, NULL);
+	ast_dial_set_user_data(dial, &wait_args);
+	ast_dial_set_state_callback(dial, bla_station_dial_trunk_wait);
 
-	/* TODO: Wait for the dial state to change */
+	/* Asynchronously dial the trunk */
+	if (ast_dial_run(dial, args->station_chan, 1) != AST_DIAL_RESULT_TRYING) {
+		ast_log(LOG_ERROR, "Failed to dial BLA trunk '%s'",
+			bla_trunk_name(args->trunk));
+		/* FIXME: Should we lock wait_args.lock here? */
+		/* Clean up */
+		ast_cond_destroy(&wait_args.done);
+		ast_mutex_destroy(&wait_args.lock);
+		/* Signal the station thread to continue */
+		ast_mutex_lock(&args->lock);
+		ast_cond_signal(&args->done);
+		ast_mutex_unlock(&args->lock);
+		return NULL;
+	}
+
+	int done = 0;
+	while (!done) {
+		/* TODO: Handle signal from dial wait callback */
+
+	}
+
+	/* TODO: Make sure we are done dialing the trunk
+	 * (We don't want our dial wait callback to be called after this point*/
+
+	/* TODO: Clean up our dial wait resources */
 
 	/* Signal the station thread to continue */
 	ast_mutex_lock(&args->lock);
@@ -136,10 +205,12 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 
 int bla_station_dial_trunk(
 	struct bla_station *self,
+	struct ast_channel *station_chan,
 	struct bla_trunk *trunk)
 {
 	struct bla_dial_trunk_args args = {
 		.station = self,
+		.station_chan = station_chan,
 		.trunk = trunk,
 	};
 	pthread_t thread;

@@ -95,6 +95,16 @@ void bla_trunk_add_station(struct bla_trunk *self, const char *station_name);
  */
 int bla_trunk_is_idle(struct bla_trunk *self);
 
+/*!
+ * \brief Dials a BLA trunk
+ * \param self Pointer to the BLA trunk object
+ * \retval zero when the trunk responds to the call 
+ * \retval non-zero if the trunk fails to respond before a timeout is reached
+ *
+ * TODO: Determine if this function is a good idea after implementing it outside of a function.
+ */
+int bla_trunk_dial(struct bla_trunk *self);
+
 int bla_trunk_hash(void *arg, int flags);
 
 int bla_trunk_cmp(

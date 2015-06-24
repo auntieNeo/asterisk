@@ -86,6 +86,10 @@ int bla_application_exec_station(
 	struct bla_station *station;
 	struct bla_trunk *trunk;
 
+	ast_log(LOG_NOTICE,
+		"Inside BLAStation() for station '%s'",
+		station_name);
+
 	/* Look for the station; make sure it exists */
 	station = bla_application_find_station(self, station_name);
 	if (station == NULL) {
@@ -125,7 +129,7 @@ int bla_application_exec_station(
 	/* TODO: Check if the trunk is ringing here? */
 
 	/* TODO: Ring the trunk */
-	bla_station_dial_trunk(station, trunk);
+	bla_station_dial_trunk(station, chan, trunk);
 
 	/* TODO: Bridge the station and trunk channels */
 
