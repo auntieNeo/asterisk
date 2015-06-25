@@ -115,7 +115,7 @@ static void bla_station_dial_trunk_wait(struct ast_dial *dial)
 
 	dial_state = ast_dial_state(dial);
 	ast_log(LOG_NOTICE, "BLA trunk '%s' dial state: '%d'",
-		bla_trunk_name(args->trunk), state);
+		bla_trunk_name(args->trunk), dial_state);
 	switch (dial_state) {
 		case AST_DIAL_RESULT_ANSWERED:
 			ast_log(LOG_NOTICE, "BLA trunk '%s' answered call from station '%s'",
@@ -213,7 +213,7 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 	while (1) {
 		/* Wait for signal from dial state callback */
 		ast_cond_wait(&wait_args.cond, &wait_args.lock);
-		if (wait_args.state != last_state) {
+		if (wait_args.state && (wait_args.state != last_state)) {
 			/* Notify the station channel of the dial state change */
 			ast_indicate(args->station_chan, wait_args.state);
 			last_state = wait_args.state;
