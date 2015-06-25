@@ -21,6 +21,7 @@
 
 /* Forward declarations */
 struct ao2_container;
+struct bla_bridge;
 
 #include "asterisk.h"
 
@@ -28,6 +29,7 @@ struct ao2_container;
 
 struct bla_trunk {
   struct ast_channel *_channel;
+  struct bla_bridge *_bridge;
 	struct ao2_container *_station_refs;
 	char _name[AST_MAX_CONTEXT];
 	char _device[AST_MAX_CONTEXT];
@@ -129,6 +131,17 @@ int bla_trunk_is_idle(struct bla_trunk *self);
  * TODO: Determine if this function is a good idea after implementing it outside of a function.
  */
 int bla_trunk_dial(struct bla_trunk *self);
+
+/*!
+ * \brief Accessor for bla_bridge associated with a bla_trunk object
+ * \param self Pointer to the bla_trunk object
+ * \return Pointer to the bla_bridge object
+ *
+ * This accessor function returns a pointer the bla_bridge object associated
+ * with the given BLA trunk. If the BLA bridge has not been accessed before,
+ * it is initialized in this function.
+ */
+struct bla_bridge *bla_trunk_bridge(struct bla_trunk *self);
 
 int bla_trunk_hash(void *arg, int flags);
 

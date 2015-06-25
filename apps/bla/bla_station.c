@@ -23,6 +23,7 @@
 #include "asterisk/logger.h"
 #include "asterisk/strings.h"
 
+#include "bla_bridge.h"
 #include "bla_trunk.h"
 #include "bla_trunk_ref.h"
 
@@ -253,8 +254,8 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 	ast_cond_signal(&args->cond);
 	ast_mutex_unlock(&args->lock);
 
-
-	/* TODO: Join the bridge */
+	/* Join the trunk to the bridge */
+	bla_bridge_join_trunk(bla_trunk_bridge(args->trunk), args->trunk);
 
 	/* Clean up the dial thread */
 	ast_dial_join(dial);

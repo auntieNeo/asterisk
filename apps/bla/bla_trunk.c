@@ -21,6 +21,7 @@
 #include "asterisk/channel.h"
 #include "asterisk/strings.h"
 
+#include "bla_bridge.h"
 #include "bla_station.h"
 #include "bla_station_ref.h"
 
@@ -30,6 +31,8 @@ int bla_trunk_init(struct bla_trunk *self)
 {
 	ast_log(LOG_NOTICE, "Initializing BLA trunk");
 
+	self->_channel = NULL;
+	self->_bridge = NULL;
 	self->_name[0] = '\0';
 	self->_device[0] = '\0';
 	self->_station_refs = ao2_container_alloc(
@@ -43,6 +46,11 @@ int bla_trunk_init(struct bla_trunk *self)
 int bla_trunk_destroy(struct bla_trunk *self)
 {
 	ao2_ref(self->_station_refs, -1);
+
+	if (self->_bridge != NULL) {
+		/* FIXME: Do we need to do anything else to destroy the bridge? */
+		ao2_ref(self->_bridge, -1);
+	}
 
 	return 0;
 }
@@ -63,6 +71,19 @@ int bla_trunk_is_idle(struct bla_trunk *self)
 {
 	/* FIXME: Actually check if the trunk is idle here */
 	return 1;
+}
+
+struct bla_bridge *bla_trunk_bridge(struct bla_trunk *self)
+{
+	/* FIXME: Probably need to lock the bla_trunk object here? */
+
+	if (self->_bridge == NULL) {
+		/* Initialize the bridge object */
+		self->_bridge = bla_bridge_alloc();
+		bla_bridge_init(self->_bridge);
+	}
+
+	return self->_bridge;
 }
 
 int bla_trunk_hash(void *arg, int flags)
