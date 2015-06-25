@@ -287,7 +287,9 @@ int bla_station_dial_trunk(
 	ast_mutex_lock(&args.lock);
 	ast_pthread_create_detached_background(
 		&thread, NULL, (void *(*)(void*))bla_station_dial_trunk_thread, &args);
+	ast_autoservice_start(station_chan);
 	ast_cond_wait(&args.cond, &args.lock);
+	ast_autoservice_stop(station_chan);
 	ast_log(LOG_NOTICE, "Station '%s' thread finished waiting for BLA dial trunk thread",
 		bla_station_name(self));
 	ast_mutex_unlock(&args.lock);
