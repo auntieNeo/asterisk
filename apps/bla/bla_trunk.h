@@ -27,6 +27,7 @@ struct ao2_container;
 #include "asterisk/channel.h"
 
 struct bla_trunk {
+  struct ast_channel *_channel;
 	struct ao2_container *_station_refs;
 	char _name[AST_MAX_CONTEXT];
 	char _device[AST_MAX_CONTEXT];
@@ -63,6 +64,30 @@ static force_inline void bla_trunk_set_name(struct bla_trunk *self, const char *
 static force_inline const char *bla_trunk_device(const struct bla_trunk *self)
 {
 	return self->_device;
+}
+
+/*!
+ * \brief Accessor for bla_trunk object's channel
+ * \return Pointer to this trunk's channel
+ *
+ * This accessor function simply returns the bla_trunk object's channel.
+ */
+static force_inline struct ast_channel *bla_trunk_channel(const struct bla_trunk *self)
+{
+	return self->_channel;
+}
+
+/*!
+ * \brief Accessor for setting bla_trunk object's channel
+ *
+ * This accessor function simply sets the bla_trunk object's channel.
+ */
+static force_inline void bla_trunk_set_channel(struct bla_trunk *self, struct ast_channel *channel)
+{
+  /* FIXME: Check to make sure we aren't doing something bad
+   * (e.g. Don't overwrite an existing channel prematurely)
+   */
+  self->_channel = channel;
 }
 
 int bla_trunk_init(struct bla_trunk *self);
