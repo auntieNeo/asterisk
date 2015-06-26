@@ -142,6 +142,9 @@ int bla_application_exec_station(
 	/* Join the station to the trunk's bridge */
 	bla_bridge_join_station(bla_trunk_bridge(trunk), station);
 
+	/* Clean up the station channel */
+	bla_station_set_channel(station, NULL);
+
 	return 0;
 }
 

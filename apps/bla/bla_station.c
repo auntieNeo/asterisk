@@ -265,7 +265,8 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 	/* Clean up the dial thread resources */
 	ast_cond_destroy(&wait_args.cond);
 	ast_mutex_destroy(&wait_args.lock);
-
+  /* Clean up the trunk channel */
+  bla_trunk_set_channel(args->trunk, NULL);
 
 	return NULL;
 }
