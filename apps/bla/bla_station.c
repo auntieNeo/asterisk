@@ -300,6 +300,11 @@ int bla_station_dial_trunk(
 	ast_mutex_destroy(&args.lock);
 	ast_cond_destroy(&args.cond);
 
+	/* FIXME: We never seem to join this dial trunk thread
+	 * anywhere... Somehow we need a way to signal it to stop and
+	 * join it (not here though).
+	 */
+
 	return 0;
 }
 

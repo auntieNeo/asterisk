@@ -19,7 +19,14 @@
 #ifndef _BLA_EVENT_QUEUE_H
 #define _BLA_EVENT_QUEUE_H
 
+#include <pthread.h>
+
+/* Forward declarations */
+struct bla_event_queue_thread_args;
+
 struct bla_event_queue {
+	pthread_t _thread;
+	struct bla_event_queue_thread_args *_thread_args;
 	AST_LIST_HEAD_NOLOCK(, bla_event) _events;
 };
 
