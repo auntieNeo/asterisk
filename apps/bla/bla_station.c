@@ -151,7 +151,6 @@ static void bla_station_dial_trunk_wait(struct ast_dial *dial)
 
 struct bla_dial_trunk_args {
 	struct bla_station *station;
-	struct ast_channel *station_chan;
 	struct bla_trunk *trunk;
   	/* Mutex/cond pair to signal station thread from trunk thread */
 	ast_cond_t cond;
@@ -192,7 +191,7 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 
 	/* Asynchronously dial the trunk */
 	ast_mutex_lock(&wait_args.lock);
-	if (ast_dial_run(dial, args->station_chan, 1) != AST_DIAL_RESULT_TRYING) {
+	if (ast_dial_run(dial, bla_station_channel(args->station), 1) != AST_DIAL_RESULT_TRYING) {
 		ast_log(LOG_ERROR, "Failed to dial BLA trunk '%s'",
 			bla_trunk_name(args->trunk));
 
@@ -216,7 +215,7 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 		ast_cond_wait(&wait_args.cond, &wait_args.lock);
 		if (wait_args.state && (wait_args.state != last_state)) {
 			/* Notify the station channel of the dial state change */
-			ast_indicate(args->station_chan, wait_args.state);
+			ast_indicate(bla_station_channel(args->station), wait_args.state);
 			last_state = wait_args.state;
 		}
 		if (wait_args.done)
@@ -270,12 +269,10 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 
 int bla_station_dial_trunk(
 	struct bla_station *self,
-	struct ast_channel *station_chan,
 	struct bla_trunk *trunk)
 {
 	struct bla_dial_trunk_args args = {
 		.station = self,
-		.station_chan = station_chan,
 		.trunk = trunk,
 	};
 	pthread_t thread;
@@ -288,9 +285,9 @@ int bla_station_dial_trunk(
 	ast_mutex_lock(&args.lock);
 	ast_pthread_create_detached_background(
 		&thread, NULL, (void *(*)(void*))bla_station_dial_trunk_thread, &args);
-	ast_autoservice_start(station_chan);
+	ast_autoservice_start(bla_station_channel(self));
 	ast_cond_wait(&args.cond, &args.lock);
-	ast_autoservice_stop(station_chan);
+	ast_autoservice_stop(bla_station_channel(self));
 	ast_log(LOG_NOTICE, "Station '%s' thread finished waiting for BLA dial trunk thread",
 		bla_station_name(self));
 	ast_mutex_unlock(&args.lock);

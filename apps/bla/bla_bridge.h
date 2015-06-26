@@ -20,6 +20,7 @@
 #define _BLA_BRIDGE_H
 
 /* Forward declarations */
+struct bla_station;
 struct bla_trunk;
 
 #include "asterisk.h"
@@ -28,10 +29,22 @@ struct bla_trunk;
 
 struct bla_bridge {
 	struct ast_bridge _bridge;
-	char _trunk_name[AST_MAX_CONTEXT];
+	char _name[AST_MAX_CONTEXT];
 };
 
-int bla_bridge_init(struct bla_bridge *self);
+/*!
+ * \brief Accessor for bla_bridge object's name
+ * \return bla_bridge name as char array
+ *
+ * This accessor function simply returns the bla_bridge object's name. This is
+ * typically the same name as the trunk it is associated with.
+ */
+static force_inline const char *bla_bridge_name(const struct bla_bridge *self)
+{
+	return self->_name;
+}
+
+int bla_bridge_init(struct bla_bridge *self, const char *name);
 
 int bla_bridge_destroy(struct bla_bridge *self);
 
@@ -61,5 +74,17 @@ static force_inline struct bla_bridge *bla_bridge_alloc(void)
  * Typically, a trunk will only ever join its own bridge.
  */
 int bla_bridge_join_trunk(struct bla_bridge *self, struct bla_trunk *trunk);
+
+/*!
+ * \brief Join the station's channel to the bridge (blocking)
+ * \param self Pointer to the bla_bridge object to join to
+ * \param trunk The station to join to this bridge
+ *
+ * This function uses the Asterisk bridging API to join the given station's
+ * channel to this bridge. This includes setting the bridging features
+ * appropriate for this particular station. This function will block until the
+ * station channel has left the bridge.
+ */
+int bla_bridge_join_station(struct bla_bridge *self, struct bla_station *station);
 
 #endif

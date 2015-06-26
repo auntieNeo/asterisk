@@ -80,7 +80,7 @@ struct bla_bridge *bla_trunk_bridge(struct bla_trunk *self)
 	if (self->_bridge == NULL) {
 		/* Initialize the bridge object */
 		self->_bridge = bla_bridge_alloc();
-		bla_bridge_init(self->_bridge);
+		bla_bridge_init(self->_bridge, bla_trunk_name(self));
 	}
 
 	return self->_bridge;

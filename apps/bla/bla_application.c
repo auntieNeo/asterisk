@@ -23,6 +23,7 @@
 #include "asterisk/pbx.h"
 #include "asterisk/utils.h"
 
+#include "bla_bridge.h"
 #include "bla_config.h"
 #include "bla_station.h"
 #include "bla_trunk.h"
@@ -128,10 +129,14 @@ int bla_application_exec_station(
 	/* TODO: Check for the phone on hold here? */
 	/* TODO: Check if the trunk is ringing here? */
 
-	/* TODO: Ring the trunk */
-	bla_station_dial_trunk(station, chan, trunk);
+  /* FIXME: Do something if the station channel is already non-null */
+  bla_station_set_channel(station, chan);
 
-	/* TODO: Bridge the station and trunk channels */
+	/* Ring (and bridge) the trunk */
+	bla_station_dial_trunk(station, trunk);
+
+	/* Join the station to the trunk's bridge */
+	bla_bridge_join_station(bla_trunk_bridge(trunk), station);
 
 	return 0;
 }

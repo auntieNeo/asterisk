@@ -28,6 +28,7 @@ struct bla_application;
 #include "asterisk/channel.h"
 
 struct bla_station {
+  struct ast_channel *_channel;
 	struct ao2_container *_trunk_refs;
 	char _name[AST_MAX_CONTEXT];
 	char _device[AST_MAX_CONTEXT];
@@ -66,6 +67,30 @@ static force_inline void bla_station_set_name(struct bla_station *self, const ch
 static force_inline const struct ao2_container *bla_station_trunk_refs(const struct bla_station *self)
 {
 	return self->_trunk_refs;
+}
+
+/*!
+ * \brief Accessor for bla_station object's channel
+ * \return Pointer to this station's channel
+ *
+ * This accessor function simply returns the bla_station object's channel.
+ */
+static force_inline struct ast_channel *bla_station_channel(const struct bla_station *self)
+{
+	return self->_channel;
+}
+
+/*!
+ * \brief Accessor for setting bla_station object's channel
+ *
+ * This accessor function simply sets the bla_station object's channel.
+ */
+static force_inline void bla_station_set_channel(struct bla_station *self, struct ast_channel *channel)
+{
+  /* FIXME: Check to make sure we aren't doing something bad
+   * (e.g. Don't overwrite an existing channel prematurely)
+   */
+  self->_channel = channel;
 }
 
 int bla_station_init(struct bla_station *self);
@@ -133,7 +158,6 @@ struct bla_trunk *bla_station_find_idle_trunk(
  */
 int bla_station_dial_trunk(
 	struct bla_station *self,
-  struct ast_channel *station_chan,
 	struct bla_trunk *trunk);
 
 int bla_station_hash(void *arg, int flags);
