@@ -19,6 +19,7 @@
 #include "asterisk.h"
 
 #include "asterisk/channel.h"
+#include "asterisk/logger.h"
 #include "asterisk/strings.h"
 
 #include "bla_bridge.h"
@@ -85,9 +86,8 @@ struct bla_bridge *bla_trunk_bridge(struct bla_trunk *self)
 		self->_bridge = bla_bridge_alloc();
 		bla_bridge_init(self->_bridge, bla_trunk_name(self));
 		/* Set the parameters for our bridge */
-		ast_log(LOG_NOTICE, "Creating bridge for BLA trunk '%s' with internal sample rate '%u'",
-			bla_trunk_name(self), bla_trunk_internal_sample_rate(self));
 		bla_bridge_set_internal_sample_rate(self->_bridge, bla_trunk_internal_sample_rate(self));
+		bla_bridge_set_mixing_interval(self->_bridge, bla_trunk_mixing_interval(self));
 	}
 
 	return self->_bridge;

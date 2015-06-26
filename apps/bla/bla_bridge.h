@@ -20,12 +20,11 @@
 #define _BLA_BRIDGE_H
 
 /* Forward declarations */
+struct ast_bridge;
 struct bla_station;
 struct bla_trunk;
 
 #include "asterisk.h"
-
-#include "asterisk/bridge.h"
 
 struct bla_bridge {
 	struct ast_bridge *_bridge;
@@ -52,10 +51,17 @@ static force_inline const char *bla_bridge_name(const struct bla_bridge *self)
  * This is simply a wrapper around the
  * ast_bridge_set_internal_sample_rate() function.
  */
-static force_inline void bla_bridge_set_internal_sample_rate(struct bla_bridge *self, unsigned int sample_rate)
-{
-	ast_bridge_set_internal_sample_rate(self->_bridge, sample_rate);
-}
+void bla_bridge_set_internal_sample_rate(struct bla_bridge *self, unsigned int sample_rate);
+
+/*!
+ * \brief Set the mixing interval for a bla_bridge object
+ * \param self Pointer to the bla_bridge object
+ * \param sample_rate The interval to use for mixing audio
+ *
+ * This is simply a wrapper around the ast_bridge_set_mixing_interval()
+ * function.
+ */
+void bla_bridge_set_mixing_interval(struct bla_bridge *self, unsigned int mixing_interval);
 
 int bla_bridge_init(struct bla_bridge *self, const char *name);
 

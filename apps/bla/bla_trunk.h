@@ -32,6 +32,7 @@ struct bla_trunk {
 	struct bla_bridge *_bridge;
 	struct ao2_container *_station_refs;
 	unsigned int _internal_sample_rate;
+	unsigned int _mixing_interval;
 	char _name[AST_MAX_CONTEXT];
 	char _device[AST_MAX_CONTEXT];
 };
@@ -125,6 +126,36 @@ static force_inline void bla_trunk_set_internal_sample_rate(struct bla_trunk *se
 {
 	/* TODO: Make it possible to set the sample rate on the fly? For reloading configuration. */
 	self->_internal_sample_rate = sample_rate;
+}
+
+/*!
+ * \brief Accessor for bla_trunk object's mixing interval
+ * \param self Pointer to the bla_trunk object
+ * \return bla_trunk mixing interval
+ *
+ * This accessor function simply returns the bla_trunk object's interval
+ * for mixing audio channels.
+ */
+static force_inline unsigned int bla_trunk_mixing_interval(const struct bla_trunk *self)
+{
+	return self->_mixing_interval;
+}
+
+/*!
+ * \brief Accessor for setting bla_trunk object's mixing interval
+ * \param self Pointer to the bla_trunk object
+ * \param mixing_interval The interval for mixing audio
+ *
+ * This accessor function simply sets the bla_trunk object's mixing interval,
+ * which determines how often the trunk bridge mixes audio.
+ *
+ * A value of zero for the mixing interval tells the bridging API to choose a
+ * default mixing interval.
+ */
+static force_inline void bla_trunk_set_mixing_interval(struct bla_trunk *self, unsigned int mixing_interval)
+{
+	/* TODO: Make it possible to set the mixing interval on the fly? For reloading configuration. */
+	self->_mixing_interval = mixing_interval;
 }
 
 int bla_trunk_init(struct bla_trunk *self);

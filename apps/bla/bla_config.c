@@ -62,6 +62,11 @@ static int bla_config_handle_trunk_internal_sample_rate(
 	const struct aco_option *opt,
 	struct ast_variable *var,
 	struct bla_trunk *trunk);
+static int bla_config_handle_trunk_mixing_interval(
+	const struct aco_option *opt,
+	struct ast_variable *var,
+	struct bla_trunk *trunk);
+
 
 static int bla_config_check_references(struct bla_config *self);
 
@@ -161,8 +166,8 @@ int bla_config_init(struct bla_config *self)
 	/* BLA trunk options */
 	aco_option_register(&bla_config_info, "type", ACO_EXACT, bla_trunk_types, NULL, OPT_NOOP_T, 0, 0);
 	aco_option_register(&bla_config_info, "device", ACO_EXACT, bla_trunk_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_trunk, _device));
-	aco_option_register_custom(&bla_config_info, "internal_sample_rate", ACO_EXACT, bla_trunk_types, "", (aco_option_handler)bla_config_handle_trunk_internal_sample_rate, 0);
-	/* TODO: mixing_interval */
+	aco_option_register_custom(&bla_config_info, "internal_sample_rate", ACO_EXACT, bla_trunk_types, "auto", (aco_option_handler)bla_config_handle_trunk_internal_sample_rate, 0);
+	aco_option_register_custom(&bla_config_info, "mixing_interval", ACO_EXACT, bla_trunk_types, "auto", (aco_option_handler)bla_config_handle_trunk_mixing_interval, 0);
 	/* TODO: video_mode? */
 	/* TODO: music_on_hold? */
 
@@ -266,22 +271,61 @@ static int bla_config_handle_trunk_internal_sample_rate(
 	struct bla_trunk *trunk)
 {
 	const char *value = var->value;
-	int result = 0;
+	unsigned int sample_rate = 0;
 
 	/* Check for special string "auto" */
 	if (strcasecmp("auto", value) == 0) {
 		/* The bridging API interprets zero as the default sample rate */
-		result = 0;
+		sample_rate = 0;
 	} else {
-		/* Convert string into an integer */
-		if (ast_parse_arg(value, PARSE_UINT32, &result)) {
-			ast_log(LOG_ERROR, "Could not parse internal_sample_rate of '%s' for BLA trunk '%s'",
+		/* Convert string into an unsigned integer */
+		if (ast_parse_arg(value, PARSE_UINT32, &sample_rate)) {
+			ast_log(LOG_ERROR, "Could not parse internal_sample_rate of '%s' for BLA trunk '%s': need unsigned integer or 'auto'",
 				value, bla_trunk_name(trunk));
 			return -1;
 		}
 	}
 
-	bla_trunk_set_internal_sample_rate(trunk, result);
+	bla_trunk_set_internal_sample_rate(trunk, sample_rate);
+
+	return 0;
+}
+
+static int bla_config_handle_trunk_mixing_interval(
+	const struct aco_option *opt,
+	struct ast_variable *var,
+	struct bla_trunk *trunk)
+{
+	const char *value = var->value;
+	unsigned int mixing_interval = 0;
+
+	if (strcasecmp("auto", value) == 0) {
+		/* The bridging API interprets zero as the default mixing interval */
+		mixing_interval = 0;
+	} else {
+		/* Convert string into an unsigned integer */
+		if (ast_parse_arg(value, PARSE_UINT32, &mixing_interval)) {
+			ast_log(LOG_ERROR, "Could not parse mixing_interval of '%s' for BLA trunk '%s': need unsigned integer or 'auto'",
+				value, bla_trunk_name(trunk));
+			return -1;
+		}
+	}
+
+	/* Check for valid mixing_interval value */
+	switch (mixing_interval) {
+		case 0:
+		case 10:
+		case 20:
+		case 40:
+		case 80:
+			break;
+		default:
+			ast_log(LOG_ERROR, "Invalid mixing_interval of '%u' for BLA trunk '%s': valid values are '10', '20', '40', '80', and 'auto'",
+				mixing_interval, bla_trunk_name(trunk));
+			return -1;
+	}
+
+	bla_trunk_set_mixing_interval(trunk, mixing_interval);
 
 	return 0;
 }

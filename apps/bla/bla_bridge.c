@@ -21,11 +21,26 @@
 #include "asterisk/bridge.h"
 #include "asterisk/causes.h"
 #include "asterisk/channel.h"
+#include "asterisk/logger.h"
 
 #include "bla_station.h"
 #include "bla_trunk.h"
 
 #include "bla_bridge.h"
+
+void bla_bridge_set_internal_sample_rate(struct bla_bridge *self, unsigned int sample_rate)
+{
+	ast_log(LOG_NOTICE, "Setting internal sample rate '%u' for BLA bridge '%s'",
+		sample_rate, bla_bridge_name(self));
+	ast_bridge_set_internal_sample_rate(self->_bridge, sample_rate);
+}
+
+void bla_bridge_set_mixing_interval(struct bla_bridge *self, unsigned int mixing_interval)
+{
+	ast_log(LOG_NOTICE, "Setting mixing interval '%u' for BLA bridge '%s'",
+		mixing_interval, bla_bridge_name(self));
+	ast_bridge_set_mixing_interval(self->_bridge, mixing_interval);
+}
 
 int bla_bridge_init(struct bla_bridge *self, const char *name)
 {
