@@ -164,6 +164,8 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 		bla_station_name(args->station),
 		bla_trunk_name(args->trunk));
 
+  /* FIXME: Don't dial the trunk if the trunk channel isn't NULL (i.e. it's already connected) */
+
 	/* Prepare the dial object to dial the trunk */
 	char *device = ast_strdupa(bla_trunk_device(args->trunk));
 	char *tech = strsep(&device, "/");

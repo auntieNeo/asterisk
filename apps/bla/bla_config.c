@@ -18,6 +18,7 @@
 
 #include "asterisk.h"
 
+#include "asterisk/config.h"
 #include "asterisk/config_options.h"
 #include "asterisk/logger.h"
 
@@ -57,6 +58,10 @@ static struct bla_trunk *bla_config_find_trunk(
 	struct ao2_container *container,
 	const char *category);
 static int bla_trunk_type_prelink(void *newitem);
+static int bla_config_handle_trunk_internal_sample_rate(
+	const struct aco_option *opt,
+	struct ast_variable *var,
+	struct bla_trunk *trunk);
 
 static int bla_config_check_references(struct bla_config *self);
 
@@ -84,7 +89,7 @@ static struct aco_type bla_trunk_type = {
 	.item_find = (aco_type_item_find)bla_config_find_trunk,
 	.item_offset = offsetof(struct bla_config, _trunks),
 	/* FIXME: Adding item_prelink just seems to segfault */
-        .item_prelink = bla_trunk_type_prelink,
+	.item_prelink = bla_trunk_type_prelink,
 };
 static struct aco_type *bla_trunk_types[] = { &bla_trunk_type };
 
@@ -156,7 +161,10 @@ int bla_config_init(struct bla_config *self)
 	/* BLA trunk options */
 	aco_option_register(&bla_config_info, "type", ACO_EXACT, bla_trunk_types, NULL, OPT_NOOP_T, 0, 0);
 	aco_option_register(&bla_config_info, "device", ACO_EXACT, bla_trunk_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_trunk, _device));
-
+	aco_option_register_custom(&bla_config_info, "internal_sample_rate", ACO_EXACT, bla_trunk_types, "", (aco_option_handler)bla_config_handle_trunk_internal_sample_rate, 0);
+	/* TODO: mixing_interval */
+	/* TODO: video_mode? */
+	/* TODO: music_on_hold? */
 
 	return 0;
 }
@@ -165,7 +173,7 @@ int bla_config_destroy(struct bla_config *self)
 {
 	ao2_ref(self->_trunks, -1);
 	ao2_ref(self->_stations, -1);
-	// TODO: assert that these refcounts are now one and not zero
+	/* TODO: Assert that these refcounts are now one and not zero */
 
 	aco_info_destroy(&bla_config_info);
 
@@ -248,6 +256,32 @@ static int bla_trunk_type_prelink(void *newitem)
 			bla_trunk_name(trunk));
 		return -1;
 	}
+
+	return 0;
+}
+
+static int bla_config_handle_trunk_internal_sample_rate(
+	const struct aco_option *opt,
+	struct ast_variable *var,
+	struct bla_trunk *trunk)
+{
+	const char *value = var->value;
+	int result = 0;
+
+	/* Check for special string "auto" */
+	if (strcasecmp("auto", value) == 0) {
+		/* The bridging API interprets zero as the default sample rate */
+		result = 0;
+	} else {
+		/* Convert string into an integer */
+		if (ast_parse_arg(value, PARSE_UINT32, &result)) {
+			ast_log(LOG_ERROR, "Could not parse internal_sample_rate of '%s' for BLA trunk '%s'",
+				value, bla_trunk_name(trunk));
+			return -1;
+		}
+	}
+
+	bla_trunk_set_internal_sample_rate(trunk, result);
 
 	return 0;
 }

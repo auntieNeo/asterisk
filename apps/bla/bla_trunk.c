@@ -40,6 +40,9 @@ int bla_trunk_init(struct bla_trunk *self)
 		  (ao2_hash_fn*)bla_station_ref_hash,
 		  (ao2_callback_fn*)bla_station_ref_cmp);
 
+	/* A sample rate of zero tells the bridging API to use a reasonable default */
+	self->_internal_sample_rate = 0;
+
 	return 0;
 }
 
@@ -81,6 +84,10 @@ struct bla_bridge *bla_trunk_bridge(struct bla_trunk *self)
 		/* Initialize the bridge object */
 		self->_bridge = bla_bridge_alloc();
 		bla_bridge_init(self->_bridge, bla_trunk_name(self));
+		/* Set the parameters for our bridge */
+		ast_log(LOG_NOTICE, "Creating bridge for BLA trunk '%s' with internal sample rate '%u'",
+			bla_trunk_name(self), bla_trunk_internal_sample_rate(self));
+		bla_bridge_set_internal_sample_rate(self->_bridge, bla_trunk_internal_sample_rate(self));
 	}
 
 	return self->_bridge;

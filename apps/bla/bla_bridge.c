@@ -67,6 +67,7 @@ int bla_bridge_join_trunk(struct bla_bridge *self, struct bla_trunk *trunk)
 			bla_trunk_name(trunk));
 		return -1;
 	}
+	/* FIXME: Trunk channel should un-bridge itself aggressively when station channels leave */
 
 	/* Join the trunk's channel to the bridge */
 	ast_log(LOG_NOTICE, "Joining BLA trunk '%s' to bridge",

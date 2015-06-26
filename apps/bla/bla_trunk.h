@@ -28,9 +28,10 @@ struct bla_bridge;
 #include "asterisk/channel.h"
 
 struct bla_trunk {
-  struct ast_channel *_channel;
-  struct bla_bridge *_bridge;
+	struct ast_channel *_channel;
+	struct bla_bridge *_bridge;
 	struct ao2_container *_station_refs;
+	unsigned int _internal_sample_rate;
 	char _name[AST_MAX_CONTEXT];
 	char _device[AST_MAX_CONTEXT];
 };
@@ -90,6 +91,40 @@ static force_inline void bla_trunk_set_channel(struct bla_trunk *self, struct as
    * (e.g. Don't overwrite an existing channel prematurely)
    */
   self->_channel = channel;
+}
+
+/*!
+ * \brief Accessor for bla_trunk object's internal sample rate
+ * \param self Pointer to the bla_trunk object
+ * \return bla_trunk internal sample rate
+ *
+ * This accessor function simply returns the bla_trunk object's sample rate
+ * for mixing audio channels.
+ *
+ * A value of zero indicates that it will use whatever default sample rate that
+ * the bridging API provides.
+ */
+static force_inline unsigned int bla_trunk_internal_sample_rate(const struct bla_trunk *self)
+{
+	return self->_internal_sample_rate;
+}
+
+/*!
+ * \brief Accessor for setting bla_trunk object's internal sample rate
+ * \param self Pointer to the bla_trunk object
+ * \param internal_sample_rate The sample rate to set for mixing audio
+ *
+ * This accessor function simply sets the bla_trunk object's internal sample
+ * rate, which is used to configure the trunk's bridge sample rate when mixing
+ * channel audio.
+ *
+ * A value of zero for the sample rate tells the bridging API to choose a
+ * default sample rate.
+ */
+static force_inline void bla_trunk_set_internal_sample_rate(struct bla_trunk *self, unsigned int sample_rate)
+{
+	/* TODO: Make it possible to set the sample rate on the fly? For reloading configuration. */
+	self->_internal_sample_rate = sample_rate;
 }
 
 int bla_trunk_init(struct bla_trunk *self);

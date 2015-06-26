@@ -44,6 +44,19 @@ static force_inline const char *bla_bridge_name(const struct bla_bridge *self)
 	return self->_name;
 }
 
+/*!
+ * \brief Set the internal sample rate for a bla_bridge object
+ * \param self Pointer to the bla_bridge object
+ * \param sample_rate The sample rate to use for mixing audio
+ *
+ * This is simply a wrapper around the
+ * ast_bridge_set_internal_sample_rate() function.
+ */
+static force_inline void bla_bridge_set_internal_sample_rate(struct bla_bridge *self, unsigned int sample_rate)
+{
+	ast_bridge_set_internal_sample_rate(self->_bridge, sample_rate);
+}
+
 int bla_bridge_init(struct bla_bridge *self, const char *name);
 
 int bla_bridge_destroy(struct bla_bridge *self);
