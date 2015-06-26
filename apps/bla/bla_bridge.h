@@ -28,7 +28,7 @@ struct bla_trunk;
 #include "asterisk/bridge.h"
 
 struct bla_bridge {
-	struct ast_bridge _bridge;
+	struct ast_bridge *_bridge;
 	char _name[AST_MAX_CONTEXT];
 };
 

@@ -19,6 +19,7 @@
 #include "asterisk.h"
 
 #include "asterisk/bridge.h"
+#include "asterisk/causes.h"
 #include "asterisk/channel.h"
 
 #include "bla_station.h"
@@ -31,13 +32,16 @@ int bla_bridge_init(struct bla_bridge *self, const char *name)
 	strncpy(self->_name, name, AST_MAX_CONTEXT);
 	self->_name[AST_MAX_CONTEXT - 1] = '\0';
 
-	/* TODO: Initialize the bridge? Glancing at the API I'm not sure there's much to do... */
+	/* Initialize the ast_bridge object */
+  self->_bridge = ast_bridge_base_new(AST_BRIDGE_CAPABILITY_MULTIMIX, 0, "BLA", name, NULL);
 	return 0;
 }
 
 int bla_bridge_destroy(struct bla_bridge *self)
 {
-	/* TODO: Destroy the bridge? */
+	/* Destroy the ast_bridge object */
+  ast_bridge_destroy(self->_bridge, AST_CAUSE_NORMAL_CLEARING);
+
 	return 0;
 }
 
@@ -46,7 +50,7 @@ int bla_bridge_join_trunk(struct bla_bridge *self, struct bla_trunk *trunk)
 	struct ast_channel *chan; 
 
 	/* BLA does not support joining trunks to any other bridges (as of yet) */
-	ast_assert(self == &trunk->_bridge);
+	ast_assert(self == trunk->_bridge);
 
 	/* Make sure the trunk's channel is valid */
 	if ((chan = bla_trunk_channel(trunk)) == NULL) {
@@ -57,7 +61,7 @@ int bla_bridge_join_trunk(struct bla_bridge *self, struct bla_trunk *trunk)
 	/* Join the trunk's channel to the bridge */
 	ast_log(LOG_NOTICE, "Joining BLA trunk '%s' to bridge",
 		bla_trunk_name(trunk));
-	ast_bridge_join(&self->_bridge, bla_trunk_channel(trunk), NULL,
+	ast_bridge_join(self->_bridge, bla_trunk_channel(trunk), NULL,
 		NULL, NULL, 0);
 	ast_log(LOG_NOTICE, "BLA trunk '%s' left bridge",
 		bla_trunk_name(trunk));
@@ -78,7 +82,7 @@ int bla_bridge_join_station(struct bla_bridge *self, struct bla_station *station
 	/* Join the station's channel to the bridge */
 	ast_log(LOG_NOTICE, "Joining BLA station '%s' to bridge",
 		bla_station_name(station));
-	ast_bridge_join(&self->_bridge, bla_station_channel(station), NULL,
+	ast_bridge_join(self->_bridge, bla_station_channel(station), NULL,
 		NULL, NULL, 0);
 	ast_log(LOG_NOTICE, "BLA station '%s' left bridge",
 		bla_station_name(station));
