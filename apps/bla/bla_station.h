@@ -58,6 +58,7 @@ static force_inline void bla_station_set_name(struct bla_station *self, const ch
 
 /*!
  * \brief Accessor for bla_station object's trunk references
+ * \param self Pointer to the bla_station object
  * \return ao2_container of trunk_ref objects
  *
  * This accessor function returns a pointer to the container holding this
@@ -93,8 +94,27 @@ static force_inline void bla_station_set_channel(struct bla_station *self, struc
   self->_channel = channel;
 }
 
+/*!
+ * \brief Initialize a bla_station object
+ * \param self Pointer to the bla_station object to initialize
+ *
+ * This function initializes the internal structures of a bla_station object.
+ *
+ * The bla_station object should be allocated with the bla_station_alloc()
+ * function before calling this function.
+ */
 int bla_station_init(struct bla_station *self);
 
+/*!
+ * \brief Destroy a bla_station object
+ * \param self Pointer to the bla_station object to destroy
+ *
+ * This function cleans up the internal structures of a bla_station object.
+ *
+ * Note that the memory for the bla_station structure itself is not freed;
+ * if the structure was allocated with bla_station_alloc(), then that memory
+ * is managed by astobj2's reference counter.
+ */
 int bla_station_destroy(struct bla_station *self);
 
 /*!

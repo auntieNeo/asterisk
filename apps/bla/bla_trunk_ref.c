@@ -38,7 +38,7 @@ int bla_trunk_ref_destroy(struct bla_trunk_ref *self)
 }
 
 
-struct bla_trunk *bla_trunk_ref_deref(
+struct bla_trunk *bla_trunk_ref_resolve(
 	struct bla_trunk_ref *self,
 	struct bla_application *app)
 {

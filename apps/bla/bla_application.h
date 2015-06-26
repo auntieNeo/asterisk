@@ -22,6 +22,9 @@
 /* Forward declarations */
 struct ast_channel;
 struct bla_event_queue;
+struct bla_trunk;
+
+#include "asterisk.h"
 
 #include "asterisk/astobj2.h"
 
@@ -75,11 +78,33 @@ static force_inline struct bla_application *bla_application_alloc(void)
  */
 int bla_application_read_config(struct bla_application *self);
 
+/* TODO: Document bla_application_exec_station() */
 int bla_application_exec_station(
 	struct bla_application *self,
 	struct ast_channel *chan,
 	const char *station_name,
 	const char *trunk_name);
+
+/*!
+ * \brief Entry point from BLATrunk() dialplan call into BLA application
+ * \param self Pointer to the BLA application object
+ * \param chan Pointer to the channel of the incoming trunk
+ * \param trunk_name Name of the trunk
+ * \retval 0 on success
+ * \retval non-zero on failure
+ *
+ * TODO: Document bla_application_exec_trunk()
+ */
+int bla_application_exec_trunk(
+	struct bla_application *self,
+	struct ast_channel *chan,
+	const char *trunk_name);
+
+/* TODO: Document bla_application_ring_trunk_stations() */
+/* TODO: Move bla_application_ring_trunk_stations to internal linkage */
+int bla_application_ring_trunk_stations(
+	struct bla_application *self,
+	struct bla_trunk *trunk);
 
 /*!
  * \brief Connect the given BLA station to any available trunk

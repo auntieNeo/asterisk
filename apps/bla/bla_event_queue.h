@@ -24,6 +24,69 @@ struct bla_event_queue {
 };
 
 /*!
+ * \brief Initialize a bla_event_queue object
+ * \param self Pointer to the bla_event_queue object to initialize
+ *
+ * This function initializes the internal structures of a bla_event_queue object.
+ *
+ * The bla_event_queue object should be allocated with the bla_event_queue_alloc()
+ * function before calling this function.
+ */
+int bla_event_queue_init(struct bla_event_queue *self);
+
+/*!
+ * \brief Destroy a bla_event_queue object
+ * \param self Pointer to the bla_event_queue object to destroy
+ *
+ * This function cleans up the internal structures of a bla_event_queue object.
+ *
+ * Note that the memory for the bla_event_queue structure itself is not freed;
+ * if the structure was allocated with bla_event_queue_alloc(), then that memory
+ * is managed by astobj2's reference counter.
+ *
+ * It is assumed that the event queue thread has been stopped with the
+ * bla_event_queue_join() function by the time bla_event_queue_destroy() is
+ * called.
+ */
+int bla_event_queue_destroy(struct bla_event_queue *self);
+
+/*!
+ * \brief Allocate a bla_event_queue object
+ * \return Pointer to bla_event_queue object allocated with ao2_alloc()
+ *
+ * This is a convenience function for allocating a bla_event_queue object. The
+ * returned bla_event_queue object is an astobj2 object with one reference count
+ * on it.
+ */
+static force_inline struct bla_event_queue *bla_event_queue_alloc(void)
+{
+	return ao2_alloc(sizeof(struct bla_event_queue), (ao2_destructor_fn)bla_event_queue_destroy);
+}
+
+/*!
+ * \brief Start the event thread for a bla_event_queue object
+ * \param self Pointer to the bla_event_queue object
+ * \retval 0 on success
+ * \retval non-zero on failure
+ *
+ * This function starts a new thread that regularly dispatches BLA events in a
+ * loop. This function does not block.
+ *
+ * When the event thread needs to be stopped, call the bla_event_queue_join()
+ * function.
+ */
+int bla_event_queue_start(struct bla_event_queue *self);
+
+/*!
+ * \brief Join the event thread for a bla_event_queue object
+ * \param self Pointer to the bla_event_queue object
+ *
+ * This function signals the bla_event_queue object's event thread to stop, and
+ * it blocks until the thread safely exits.
+ */
+void bla_event_queue_join(struct bla_event_queue *self);
+
+/*!
  * \brief Schedule a ring event for a station
  * \param self Pointer to the bla_event_queue object
  * \param station Pointer to the station being rung

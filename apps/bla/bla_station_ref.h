@@ -19,6 +19,9 @@
 #ifndef _BLA_STATION_REF_H
 #define _BLA_STATION_REF_H
 
+/* Forward declarations */
+struct bla_application;
+
 struct bla_station_ref {
 	char *_name;
 };
@@ -60,6 +63,18 @@ static force_inline struct bla_station_ref *bla_station_ref_alloc(void)
 {
 	return ao2_alloc(sizeof(struct bla_station_ref), (ao2_destructor_fn)bla_station_ref_destroy);
 }
+
+/*!
+ * \brief Dereference a bla_station_ref object into a bla_station object
+ * \param self Pointer to the BLA station ref object
+ * \param app Pointer to the BLA application
+ *
+ * This function "dereferences" a station reference object, which is to say that
+ * it looks for the station with the station reference's name inside of app.
+ */
+struct bla_station *bla_station_ref_resolve(
+	struct bla_station_ref *self,
+	struct bla_application *app);
 
 int bla_station_ref_hash(void *arg, int flags);
 

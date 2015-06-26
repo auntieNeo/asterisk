@@ -158,6 +158,20 @@ static force_inline void bla_trunk_set_mixing_interval(struct bla_trunk *self, u
 	self->_mixing_interval = mixing_interval;
 }
 
+/*!
+ * \brief Accessor for bla_trunk object's station references
+ * \param self Pointer to the bla_trunk object
+ * \return ao2_container of station_ref objects
+ *
+ * This accessor function returns a pointer to the container holding this
+ * trunk's station references. This pointer should not be stored and the
+ * container should not be modified directly.
+ */
+static force_inline const struct ao2_container *bla_trunk_station_refs(const struct bla_trunk *self)
+{
+	return self->_station_refs;
+}
+
 int bla_trunk_init(struct bla_trunk *self);
 
 int bla_trunk_destroy(struct bla_trunk *self);

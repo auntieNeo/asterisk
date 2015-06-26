@@ -25,6 +25,18 @@
 
 #include "bla_event_queue.h"
 
+int bla_event_queue_init(struct bla_event_queue *self)
+{
+	/* TODO: Initialize the linked list of event objects? */
+	return 0;
+}
+
+int bla_event_queue_destroy(struct bla_event_queue *self)
+{
+	/* TODO: Destroy the linked list of event objects */
+	return 0;
+}
+
 int bla_event_queue_ring_station(
 	struct bla_event_queue *self,
 	struct bla_station *station,
@@ -45,6 +57,7 @@ int bla_event_queue_ring_station(
 	}
 
 	/* TODO: Queue up this event */
+/*	bla_event_queue_enqueue(self, event); */
 
 	return 0;
 }

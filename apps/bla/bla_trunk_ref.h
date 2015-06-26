@@ -72,7 +72,7 @@ static force_inline struct bla_trunk_ref *bla_trunk_ref_alloc(void)
  * This function "dereferences" a trunk reference object, which is to say that
  * it looks for the trunk with the trunk reference's name inside of app.
  */
-struct bla_trunk *bla_trunk_ref_deref(
+struct bla_trunk *bla_trunk_ref_resolve(
 	struct bla_trunk_ref *self,
 	struct bla_application *app);
 

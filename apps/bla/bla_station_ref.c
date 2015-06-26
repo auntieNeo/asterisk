@@ -21,6 +21,8 @@
 #include "asterisk/channel.h"
 #include "asterisk/utils.h"
 
+#include "bla_application.h"
+
 #include "bla_station_ref.h"
 
 int bla_station_ref_init(struct bla_station_ref *self)
@@ -34,6 +36,15 @@ int bla_station_ref_destroy(struct bla_station_ref *self)
 	ast_free(self->_name);
 	return 0;
 };
+
+struct bla_station *bla_station_ref_resolve(
+	struct bla_station_ref *self,
+	struct bla_application *app)
+{
+	/* FIXME: This could probably be static */
+	/* Find the station with our name inside app */
+	return bla_application_find_station(app, bla_station_ref_name(self));
+}
 
 int bla_station_ref_hash(void *arg, int flags)
 {

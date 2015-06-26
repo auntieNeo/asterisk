@@ -76,7 +76,7 @@ struct bla_trunk *bla_station_find_idle_trunk(struct bla_station *self, struct b
 	struct ao2_iterator i;
 	i = ao2_iterator_init(self->_trunk_refs, 0);
 	while ((trunk_ref = ao2_iterator_next(&i))) {
-		struct bla_trunk *trunk = bla_trunk_ref_deref(trunk_ref, app);
+		struct bla_trunk *trunk = bla_trunk_ref_resolve(trunk_ref, app);
 		/* Return with the first trunk that is not in use */
 		if (bla_trunk_is_idle(trunk)) {
 			ao2_ref(trunk_ref, -1);

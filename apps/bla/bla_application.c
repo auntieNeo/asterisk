@@ -25,23 +25,37 @@
 
 #include "bla_bridge.h"
 #include "bla_config.h"
+#include "bla_event_queue.h"
 #include "bla_station.h"
+#include "bla_station_ref.h"
 #include "bla_trunk.h"
 
 #include "bla_application.h"
 
 int bla_application_init(struct bla_application *self)
 {
-  ast_log(LOG_NOTICE, "Initializing BLA application");
+	ast_log(LOG_NOTICE, "Initializing BLA application");
 
 	self->_stations = NULL;
 	self->_trunks = NULL;
+
+	/* Initialize the event queue */
+	self->_event_queue = bla_event_queue_alloc();
+	bla_event_queue_init(self->_event_queue);
+	/* Start the event queue thread */
+	bla_event_queue_start(self->_event_queue);
 
 	return 0;
 }
 
 int bla_application_destroy(struct bla_application *self)
 {
+	/* Stop the event queue thread */
+	bla_event_queue_join(self->_event_queue);
+	/* Destroy the event queue */
+	bla_event_queue_destroy(self->_event_queue);
+	ao2_ref(self->_event_queue, -1);
+
 	if (self->_trunks != NULL)
 		ao2_ref(self->_trunks, -1);
 	if (self->_stations != NULL)
@@ -78,6 +92,7 @@ int bla_application_read_config(struct bla_application *self)
 	return 0;
 }
 
+/* TODO: Pepper all error conditions in exec_station with pbx_builtin_setvar_helper(chan, "BLA_RESULT", "FAILED"); */
 int bla_application_exec_station(
 	struct bla_application *self,
 	struct ast_channel *chan,
@@ -144,6 +159,56 @@ int bla_application_exec_station(
 
 	/* Clean up the station channel */
 	bla_station_set_channel(station, NULL);
+
+	return 0;
+}
+
+/* TODO: Pepper all error conditions in exec_station with pbx_builtin_setvar_helper(chan, "BLA_RESULT", "FAILED"); */
+int bla_application_exec_trunk(
+	struct bla_application *self,
+	struct ast_channel *chan,
+	const char *trunk_name)
+{
+	struct bla_trunk *trunk;
+
+	/* Look for the trunk; make sure it exists */
+	trunk = bla_application_find_trunk(self, trunk_name);
+	if (trunk == NULL) {
+		ast_log(LOG_ERROR,
+			"Error executing BLATrunk(): trunk named '%s' does not exist",
+			trunk_name);
+		pbx_builtin_setvar_helper(chan, "BLA_RESULT", "FAILED");
+		return -1;
+	}
+
+	/* TODO: Decide what to do with an incoming trunk call */
+
+	/* TODO: Start ringing stations */
+	bla_application_ring_trunk_stations(self, trunk);
+
+	/* TODO: Wait for a station to answer or for us to timeout */
+
+	return 0;
+}
+
+int bla_application_ring_trunk_stations(
+	struct bla_application *self,
+	struct bla_trunk *trunk)
+{
+	/* TODO: Iterate through all of this trunk's stations */
+	struct ao2_iterator i;
+	struct bla_station_ref *station_ref;
+	/* NOTE: No choice here but to cast away const for container; don't modify anything! */
+	i = ao2_iterator_init((struct ao2_container *)bla_trunk_station_refs(trunk), 0);
+	while ((station_ref = ao2_iterator_next(&i))) {
+		struct bla_station *station;
+		station = bla_station_ref_resolve(station_ref, self);
+		/* TODO: Queue up a ring event for each station */
+		bla_event_queue_ring_station(self->_event_queue, station, trunk);
+		ao2_ref(station, -1);
+		ao2_ref(station_ref, -1);
+	}
+	ao2_iterator_destroy(&i);
 
 	return 0;
 }
