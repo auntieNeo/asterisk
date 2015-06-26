@@ -253,6 +253,9 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 	ast_cond_signal(&args->cond);
 	ast_mutex_unlock(&args->lock);
 
+  /* Answer the trunk channel */
+  ast_answer(bla_trunk_channel(args->trunk));
+
 	/* Join the trunk to the bridge */
 	bla_bridge_join_trunk(bla_trunk_bridge(args->trunk), args->trunk);
 

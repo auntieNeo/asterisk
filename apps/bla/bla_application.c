@@ -129,11 +129,15 @@ int bla_application_exec_station(
 	/* TODO: Check for the phone on hold here? */
 	/* TODO: Check if the trunk is ringing here? */
 
-  /* FIXME: Do something if the station channel is already non-null */
-  bla_station_set_channel(station, chan);
+	/* FIXME: Do something if the station channel is already non-null */
+	bla_station_set_channel(station, chan);
 
 	/* Ring (and bridge) the trunk */
+	/* FIXME: Check for failure to dial trunk here */
 	bla_station_dial_trunk(station, trunk);
+
+	/* Answer the station channel */
+	ast_answer(bla_station_channel(station));
 
 	/* Join the station to the trunk's bridge */
 	bla_bridge_join_station(bla_trunk_bridge(trunk), station);

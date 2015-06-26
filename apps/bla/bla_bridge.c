@@ -59,6 +59,7 @@ int bla_bridge_join_trunk(struct bla_bridge *self, struct bla_trunk *trunk)
 				bla_trunk_name(trunk));
 		return -1;
 	}
+	/* TODO: Check that the trunk channel has been answered */
 
 	/* TODO: Build the bridge features for this trunk */
 	if (ast_bridge_features_init(&features)) {
@@ -91,6 +92,7 @@ int bla_bridge_join_station(struct bla_bridge *self, struct bla_station *station
 		ast_log(LOG_ERROR, "BLA station '%s' failed to join BLA bridge '%s': station channel not connected",
 			bla_station_name(station), bla_bridge_name(self));
 	}
+	/* TODO: Check that the station channel has been answered */
 
 	/* TODO: Build the bridge features for this station */
 	if (ast_bridge_features_init(&features)) {
