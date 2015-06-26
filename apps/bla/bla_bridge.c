@@ -33,14 +33,14 @@ int bla_bridge_init(struct bla_bridge *self, const char *name)
 	self->_name[AST_MAX_CONTEXT - 1] = '\0';
 
 	/* Initialize the ast_bridge object */
-  self->_bridge = ast_bridge_base_new(AST_BRIDGE_CAPABILITY_MULTIMIX, 0, "BLA", name, NULL);
+	self->_bridge = ast_bridge_base_new(AST_BRIDGE_CAPABILITY_MULTIMIX, 0, "BLA", name, NULL);
 	return 0;
 }
 
 int bla_bridge_destroy(struct bla_bridge *self)
 {
 	/* Destroy the ast_bridge object */
-  ast_bridge_destroy(self->_bridge, AST_CAUSE_NORMAL_CLEARING);
+	ast_bridge_destroy(self->_bridge, AST_CAUSE_NORMAL_CLEARING);
 
 	return 0;
 }
@@ -48,6 +48,7 @@ int bla_bridge_destroy(struct bla_bridge *self)
 int bla_bridge_join_trunk(struct bla_bridge *self, struct bla_trunk *trunk)
 {
 	struct ast_channel *chan; 
+	struct ast_bridge_features features;
 
 	/* BLA does not support joining trunks to any other bridges (as of yet) */
 	ast_assert(self == trunk->_bridge);
@@ -55,37 +56,59 @@ int bla_bridge_join_trunk(struct bla_bridge *self, struct bla_trunk *trunk)
 	/* Make sure the trunk's channel is valid */
 	if ((chan = bla_trunk_channel(trunk)) == NULL) {
 		ast_log(LOG_ERROR, "BLA trunk '%s' failed to join bridge; trunk channel not connected",
-			bla_trunk_name(trunk));
+				bla_trunk_name(trunk));
+		return -1;
 	}
-	
+
+	/* TODO: Build the bridge features for this trunk */
+	if (ast_bridge_features_init(&features)) {
+		ast_log(LOG_ERROR, "BLA trunk '%s' failed to initialize bridge features",
+			bla_trunk_name(trunk));
+		return -1;
+	}
+
 	/* Join the trunk's channel to the bridge */
 	ast_log(LOG_NOTICE, "Joining BLA trunk '%s' to bridge",
 		bla_trunk_name(trunk));
 	ast_bridge_join(self->_bridge, bla_trunk_channel(trunk), NULL,
-		NULL, NULL, 0);
+		&features, NULL, 0);
 	ast_log(LOG_NOTICE, "BLA trunk '%s' left bridge",
 		bla_trunk_name(trunk));
-	
+
+	/* Cleanup */
+	ast_bridge_features_cleanup(&features);
+
 	return 0;
 }
 
 int bla_bridge_join_station(struct bla_bridge *self, struct bla_station *station)
 {
 	struct ast_channel *chan; 
+	struct ast_bridge_features features;
 
 	/* TODO: Make sure the station's channel is valid */
 	if ((chan = bla_station_channel(station)) == NULL) {
 		ast_log(LOG_ERROR, "BLA station '%s' failed to join BLA bridge '%s': station channel not connected",
 			bla_station_name(station), bla_bridge_name(self));
 	}
+
+	/* TODO: Build the bridge features for this station */
+	if (ast_bridge_features_init(&features)) {
+		ast_log(LOG_ERROR, "BLA station '%s' failed to initialize bridge features",
+			bla_station_name(station));
+		return -1;
+	}
 	
 	/* Join the station's channel to the bridge */
 	ast_log(LOG_NOTICE, "Joining BLA station '%s' to bridge",
 		bla_station_name(station));
 	ast_bridge_join(self->_bridge, bla_station_channel(station), NULL,
-		NULL, NULL, 0);
+		&features, NULL, 0);
 	ast_log(LOG_NOTICE, "BLA station '%s' left bridge",
 		bla_station_name(station));
+
+	/* Cleanup */
+	ast_bridge_features_cleanup(&features);
 
 	return 0;
 }
