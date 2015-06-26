@@ -50,7 +50,7 @@ int bla_station_destroy(struct bla_station *self)
 	return 0;
 }
 
-void bla_station_add_trunk(struct bla_station *self, const char *trunk_name)
+void bla_station_add_trunk_ref(struct bla_station *self, const char *trunk_name)
 {
 	struct bla_trunk_ref *trunk_ref;
 

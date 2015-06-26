@@ -110,7 +110,8 @@ static force_inline struct bla_station *bla_station_alloc(void)
 	return ao2_alloc(sizeof(struct bla_station), (ao2_destructor_fn)bla_station_destroy);
 }
 
-void bla_station_add_trunk(struct bla_station *self, const char *trunk_name);
+/* TODO: Add documentation for bla_station_add_trunk_ref() */
+void bla_station_add_trunk_ref(struct bla_station *self, const char *trunk_name);
 
 /*!
  * \brief Get station trunk ref with the given name

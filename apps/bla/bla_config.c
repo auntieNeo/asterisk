@@ -222,11 +222,17 @@ static int bla_config_handle_station_trunk(
 	struct ast_variable *var,
 	struct bla_station *station)
 {
-	/* TODO: Add a trunk to the station */
+	/* Add a trunk ref to the station */
 	const char *trunk_name = var->value;
-	bla_station_add_trunk(station, trunk_name);
-	/* TODO: Find the trunk named thusly add add the station to it */
-	/* FIXME: We must validate the existance of this trunk _after_ adding everything */
+	bla_station_add_trunk_ref(station, trunk_name);
+
+	/* NOTE: We validate the existance of this trunk _after_ parsing the
+	 * entire configuration. There is no other way to resolve the name of
+	 * the trunk until after all the trunks have been parsed.
+	 *
+	 * We also add our station references at a later time for the same
+	 * reason.
+	 */
 
 	return 0;
 }
