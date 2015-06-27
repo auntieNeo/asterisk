@@ -35,6 +35,43 @@ struct bla_application {
 };
 
 /*!
+ * \brief Access bla_application singleton object
+ * \returns Pointer to the bla_application singleton
+ *
+ * This function gets a pointer to the bla_application singleton object. The
+ * bla_application_singleton_create() function must be called sometime before
+ * calling this function.
+ *
+ * The reference count on the bla_application singleton is incremented by this
+ * function, so callers are responsible for freeing that reference when they are
+ * done using the singleton.
+ */
+struct bla_application *bla_application_singleton(void);
+
+/*!
+ * \brief Create the bla_application singleton object
+ * \retval 0 on success
+ * \retval non-zero on failure
+ *
+ * This function allocates and initializese the bla_application singleton
+ * object. This function must be called before calling
+ * bla_application_singleton().
+ */
+int bla_application_singleton_create(void);
+
+/*!
+ * \brief Release the reference on bla_application singleton object
+ *
+ * This function releases the global reference on the bla_application singleton
+ * object so that it can be destroyed. bla_application_singleton() should not be
+ * called after the global reference is released.
+ *
+ * This function only affects the global reference; other references to the
+ * bla_application singleton will persist.
+ */
+void bla_application_singleton_release(void);
+
+/*!
  * \brief Initializes a BLA application
  * \param self Pointer to the BLA application object
  *

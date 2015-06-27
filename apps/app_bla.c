@@ -40,10 +40,9 @@
 static const char bla_station_app[] = "BLAStation";
 static const char bla_trunk_app[] = "BLATrunk";
 
-static struct bla_application *app;
-
 static int bla_exec_station(struct ast_channel *chan, const char *data)
 {
+	RAII_VAR(struct bla_application *, app, bla_application_singleton(), ao2_cleanup);
 	char *parse;
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(station_name);
@@ -68,6 +67,7 @@ static int bla_exec_station(struct ast_channel *chan, const char *data)
 
 static int bla_exec_trunk(struct ast_channel *chan, const char *data)
 {
+	RAII_VAR(struct bla_application *, app, bla_application_singleton(), ao2_cleanup);
 	char *parse;
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(trunk_name);
@@ -93,13 +93,16 @@ static int load_module(void)
 {
 	ast_log(LOG_NOTICE, "Loading BLA module");
 
-	app = bla_application_alloc();
+	if (bla_application_singleton_create()) {
+		ast_log(LOG_ERROR, "Failed to create BLA application; refusing to load app_bla module");
+		return AST_MODULE_LOAD_DECLINE;
+	}
 
-	bla_application_init(app);
+	RAII_VAR(struct bla_application *, app, bla_application_singleton(), ao2_cleanup);
 
 	if (bla_application_read_config(app)) {
 		ast_log(LOG_ERROR, "Failed to read BLA config; refusing to load app_bla module");
-		ao2_ref(app, -1);
+		bla_application_singleton_release();
 		return AST_MODULE_LOAD_DECLINE;
 	}
 
@@ -125,8 +128,8 @@ static int load_module(void)
 }
 
 static int unload_module(void) {
-	ao2_ref(app, -1);
-	// TODO: assert that the app refcount is now zero
+	bla_application_singleton_release();
+	/* TODO: assert that the app refcount is now zero */
 
 	return 0;
 }

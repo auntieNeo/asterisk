@@ -33,6 +33,39 @@
 
 #include "bla_application.h"
 
+static AO2_GLOBAL_OBJ_STATIC(bla_app_singleton);
+
+struct bla_application *bla_application_singleton(void)
+{
+	struct bla_application *app = ao2_global_obj_ref(bla_app_singleton);
+
+	ast_assert(app != NULL);
+
+	return app;
+}
+
+int bla_application_singleton_create(void)
+{
+	struct bla_application *app;
+
+	ast_assert(ao2_global_obj_ref(bla_app_singleton) == NULL);
+
+	app = bla_application_alloc();
+	if (bla_application_init(app))
+		return -1;
+	ao2_global_obj_replace_unref(bla_app_singleton, app);
+
+	/* TODO: Assert reference count on app is two */
+	ao2_ref(app, -1);
+
+	return 0;
+}
+
+void bla_application_singleton_release(void)
+{
+	ao2_global_obj_release(bla_app_singleton);
+}
+
 int bla_application_init(struct bla_application *self)
 {
 	ast_log(LOG_NOTICE, "Initializing BLA application");
@@ -108,7 +141,12 @@ static char *bla_application_show_stations(
 		case CLI_GENERATE:
 			return NULL;  /* Takes no arguments */
 		default:
-			/* TODO: */
+			{
+				/* TODO: Iterate through all of our stations */
+				/*struct ao2_iterator i; */
+				/* TODO: It looks like we need to turn bla_application into a singleton */
+/*				i = ao2_iterator_init(); */
+			}
 			return CLI_SUCCESS;
 	}
 }
