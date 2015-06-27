@@ -19,6 +19,7 @@
 #include "asterisk.h"
 
 #include "asterisk/astobj2.h"
+#include "asterisk/cli.h"
 #include "asterisk/logger.h"
 #include "asterisk/pbx.h"
 #include "asterisk/utils.h"
@@ -88,6 +89,41 @@ int bla_application_read_config(struct bla_application *self)
 	ao2_ref(self->_stations, 1);
 	self->_trunks = bla_config_trunks(config);
 	ao2_ref(self->_trunks, 1);
+
+	return 0;
+}
+
+static char *bla_application_show_stations(
+	struct ast_cli_entry *entry,
+	int cmd,
+	struct ast_cli_args *args)
+{
+	switch (cmd) {
+		case CLI_INIT:
+			entry->command = "bla show stations";
+			entry->usage =
+				"Usage: bla show stations\n"
+				"       List the BLA stations\n";
+			return NULL;
+		case CLI_GENERATE:
+			return NULL;  /* Takes no arguments */
+		default:
+			/* TODO: */
+			return CLI_SUCCESS;
+	}
+}
+
+static struct ast_cli_entry bla_application_cli[] = {
+	AST_CLI_DEFINE(bla_application_show_stations,
+		"List the BLA stations")
+};
+
+int bla_application_register_cli(struct bla_application *self)
+{
+	if (ast_cli_register_multiple(bla_application_cli, ARRAY_LEN(bla_application_cli))) {
+		ast_log(LOG_ERROR, "Failed to register BLA command line interface");
+		return -1;
+	}
 
 	return 0;
 }

@@ -78,6 +78,17 @@ static force_inline struct bla_application *bla_application_alloc(void)
  */
 int bla_application_read_config(struct bla_application *self);
 
+/*!
+ * \brief Register BLA's CLI commands
+ * \param self Pointer to the bla_application object
+ * \retval 0 on success
+ * \retval non-zero on failure
+ *
+ * This function registers the various app_bla CLI commands to the Asterisk CLI
+ * command API.
+ */
+int bla_application_register_cli(struct bla_application *self);
+
 /* TODO: Document bla_application_exec_station() */
 int bla_application_exec_station(
 	struct bla_application *self,

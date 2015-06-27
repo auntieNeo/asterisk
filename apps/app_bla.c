@@ -115,6 +115,8 @@ static int load_module(void)
 		"This is the application that BLA trunks should execute "
 		"in the dialplan when dialing into Asterisk.");
 
+	result |= bla_application_register_cli(app);
+
 	if (result != 0)
 		/* FIXME: Might need to free resources ourselves here? */
 		return AST_MODULE_LOAD_FAILURE;
