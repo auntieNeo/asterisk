@@ -51,6 +51,36 @@ int bla_event_init(
 
 int bla_event_destroy(struct bla_event *self)
 {
-	/* TODO: Destroy our event? Depends on what the event type is*/
+	/* TODO: Destroy our event? Depends on what the event type is. */
+	return 0;
+}
+
+
+const char *bla_event_type_as_string(struct bla_event *self)
+{
+#define _BLA_EVENT_STRING(type) case type: return #type ;
+#define BLA_EVENT_STRING(type) _BLA_EVENT_STRING( BLA_ ## type ## _EVENT )
+	switch (self->_type) {
+		BLA_EVENT_STRING(RING_STATION)
+	}
+
+	return "BLA_UNKNOWN_EVENT";
+}
+
+int bla_event_dispatch(struct bla_event *self)
+{
+	/* Determine what to do based on the event type */
+	ast_log(LOG_ERROR, "Dispatching BLA event of type '%s'",
+		bla_event_type_as_string(self));
+	switch (self->_type) {
+		case BLA_RING_STATION_EVENT:
+			/* TODO: Handle BLA ring station event */
+			break;
+		default:
+			ast_log(LOG_ERROR, "Unknown BLA event type '%s'",
+				bla_event_type_as_string(self));
+			return -1;
+	}
+
 	return 0;
 }

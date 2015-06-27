@@ -94,6 +94,28 @@ int bla_event_queue_start(struct bla_event_queue *self);
 void bla_event_queue_join(struct bla_event_queue *self);
 
 /*!
+ * \brief Add an event to the end of the event queue
+ * \param self Pointer to the bla_event_queue object
+ * \param event Pointer to the bla_event object to add to the queue
+ *
+ * This function queues up a new event to the end of the event queue. The queue
+ * is FIFO by order added (regardless of event timestamp).
+ */
+void bla_event_queue_enqueue(struct bla_event_queue *self, struct bla_event *event);
+
+/*!
+ * \brief Remove an event from the end of the event queue
+ * \param self Pointer to the bla_event_queue object
+ * \retval Pointer to the bla_event object removed from the queue
+ * \retval NULL if the queue was empty
+ *
+ * This function removes the oldest bla_event object in the queue and returns a
+ * pointer to that object. The queue is FIFO by order added (regardless of event
+ * timestamp).
+ */
+struct bla_event *bla_event_queue_dequeue(struct bla_event_queue *self);
+
+/*!
  * \brief Schedule a ring event for a station
  * \param self Pointer to the bla_event_queue object
  * \param station Pointer to the station being rung

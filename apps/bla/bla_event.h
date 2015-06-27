@@ -39,6 +39,7 @@ struct bla_event {
 	int _type;
 	struct timeval _timestamp;
 	union bla_event_data _data;
+	AST_LIST_ENTRY(bla_event) _list_entry;
 };
 
 /*!
@@ -79,5 +80,25 @@ static force_inline struct bla_event *bla_event_alloc(void)
 {
 	return ao2_alloc(sizeof(struct bla_event), (ao2_destructor_fn)bla_event_destroy);
 }
+
+/*!
+ * \brief Get BLA event type as character string.
+ * \param Pointer to the bla_event object
+ * \return Name of event type as character string
+ *
+ * This function returns the name of the type of this event as a character
+ * string. Useful for debugging.
+ */
+const char *bla_event_type_as_string(struct bla_event *self);
+
+/*!
+ * \brief Dispatch this BLA event
+ * \param self Pointer to the bla_event object
+ *
+ * This function executes whatever routines need to be executed for events of
+ * this type. This amounts to dispatching this event to whichever BLA objects
+ * are associated with it.
+ */
+int bla_event_dispatch(struct bla_event *self);
 
 #endif

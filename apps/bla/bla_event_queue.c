@@ -41,13 +41,38 @@ int bla_event_queue_destroy(struct bla_event_queue *self)
 }
 
 struct bla_event_queue_thread_args {
-	int todo;
+	struct bla_event_queue *event_queue;
+	ast_cond_t cond;
+	ast_mutex_t lock;
+	int stop;
 };
 static void *bla_event_queue_thread(struct bla_event_queue_thread_args *args)
 {
 	ast_log(LOG_NOTICE, "Entering BLA event thread");
 
-	/* TODO: Loop to wait for and handle events */
+	/* Loop to wait for and handle events */
+	while (1)
+	{
+		/* Wait for events */
+		/* TODO: Check for timeouts before waiting */
+		ast_cond_wait(&args->cond, &args->lock);
+
+		/* Check for stop signal */
+		if (args->stop)
+			/* FIXME: Should we exit immediately without flushing events? */
+			break;
+
+		struct bla_event *event;
+		/* Loop through every event on the queue */
+		while ((event = bla_event_queue_dequeue(args->event_queue))) {
+			/* Dispatch every event to type-specific handlers */
+			if (bla_event_dispatch(event)) {
+				ast_log(LOG_ERROR, "Failed to dispatch '%s' BLA event",
+					bla_event_type_as_string(event));
+			}
+			ao2_ref(event, -1);
+		}
+	}
 
 	ast_log(LOG_NOTICE, "Leaving BLA event thread");
 
@@ -59,7 +84,10 @@ int bla_event_queue_start(struct bla_event_queue *self)
 	/* Prepare the event thread resources */
 	ast_assert(self->_thread_args == NULL);
 	self->_thread_args = ast_malloc(sizeof(struct bla_event_queue_thread_args));
-	self->_thread_args->todo = 0;
+	ast_mutex_init(&self->_thread_args->lock);
+	ast_cond_init(&self->_thread_args->cond, NULL);
+	self->_thread_args->stop = 0;
+	self->_thread_args->event_queue = self;
 
 	/* Start the event thread */
 	ast_log(LOG_NOTICE, "Starting BLA event thread");
@@ -71,14 +99,30 @@ int bla_event_queue_start(struct bla_event_queue *self)
 
 void bla_event_queue_join(struct bla_event_queue *self)
 {
-	/* TODO: Signal the event thread to stop */
+	/* Signal the event thread to stop */
+	ast_mutex_lock(&self->_thread_args->lock);
+	self->_thread_args->stop = 1;
+	ast_cond_signal(&self->_thread_args->cond);
+	ast_mutex_unlock(&self->_thread_args->lock);
 
 	/* Join the event thread */
 	pthread_join(self->_thread, NULL);
 
 	/* Destroy the event thread resources */
+	ast_cond_destroy(&self->_thread_args->cond);
+	ast_mutex_destroy(&self->_thread_args->lock);
 	ast_free(self->_thread_args);
 	self->_thread_args = NULL;
+}
+
+void bla_event_queue_enqueue(struct bla_event_queue *self, struct bla_event *event)
+{
+	AST_LIST_INSERT_TAIL(&self->_events, event, _list_entry);
+}
+
+struct bla_event *bla_event_queue_dequeue(struct bla_event_queue *self)
+{
+	return AST_LIST_REMOVE_HEAD(&self->_events, _list_entry);
 }
 
 int bla_event_queue_ring_station(
@@ -100,8 +144,8 @@ int bla_event_queue_ring_station(
 		return -1;
 	}
 
-	/* TODO: Queue up this event */
-/*	bla_event_queue_enqueue(self, event); */
+	/* Queue up this event */
+	bla_event_queue_enqueue(self, event);
 
 	return 0;
 }

@@ -183,7 +183,7 @@ int bla_application_exec_trunk(
 
 	/* TODO: Decide what to do with an incoming trunk call */
 
-	/* TODO: Start ringing stations */
+	/* Start ringing stations */
 	bla_application_ring_trunk_stations(self, trunk);
 
 	/* TODO: Wait for a station to answer or for us to timeout */
@@ -195,7 +195,7 @@ int bla_application_ring_trunk_stations(
 	struct bla_application *self,
 	struct bla_trunk *trunk)
 {
-	/* TODO: Iterate through all of this trunk's stations */
+	/* Iterate through all of this trunk's stations */
 	struct ao2_iterator i;
 	struct bla_station_ref *station_ref;
 	/* NOTE: No choice here but to cast away const for container; don't modify anything! */
@@ -203,7 +203,7 @@ int bla_application_ring_trunk_stations(
 	while ((station_ref = ao2_iterator_next(&i))) {
 		struct bla_station *station;
 		station = bla_station_ref_resolve(station_ref, self);
-		/* TODO: Queue up a ring event for each station */
+		/* Queue up a ring event for each station */
 		bla_event_queue_ring_station(self->_event_queue, station, trunk);
 		ao2_ref(station, -1);
 		ao2_ref(station_ref, -1);
