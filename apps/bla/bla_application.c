@@ -309,7 +309,7 @@ int bla_application_ring_trunk_stations(
 		ast_log(LOG_NOTICE, "Queuing up BLA ring event for station '%s' from trunk '%s'",
 			bla_station_name(station), bla_trunk_name(trunk));
 		/* Queue up a ring event for each station */
-/*		bla_event_queue_ring_station(self->_event_queue, station, trunk); */
+		bla_event_queue_ring_station(self->_event_queue, station, trunk);
 		ao2_ref(station, -1);
 		ao2_ref(station_ref, -1);
 	}
