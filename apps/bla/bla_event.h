@@ -32,7 +32,7 @@ union bla_event_data {
 	struct bla_ring_station_event {
 		struct bla_station *station;
 		struct bla_trunk *trunk;
-	} station_ring_event;
+	} ring_station_event;
 };
 
 struct bla_event {

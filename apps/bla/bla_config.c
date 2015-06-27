@@ -364,7 +364,8 @@ static int bla_config_check_references(struct bla_config *self)
 				return -1;
 			}
 			/* Since the trunk exists, give it a reference to the station */
-			bla_trunk_add_station(trunk, bla_station_name(station));
+			bla_trunk_add_station_ref(trunk, bla_station_name(station));
+			ao2_ref(trunk, -1);
 		}
         	ao2_iterator_destroy(&j);
 		ao2_ref(station, -1);

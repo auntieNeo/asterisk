@@ -189,7 +189,7 @@ static force_inline struct bla_trunk *bla_trunk_alloc(void)
 	return ao2_alloc(sizeof(struct bla_trunk), (ao2_destructor_fn)bla_trunk_destroy);
 }
 
-void bla_trunk_add_station(struct bla_trunk *self, const char *station_name);
+void bla_trunk_add_station_ref(struct bla_trunk *self, const char *station_name);
 
 /*!
  * \brief Determine if a trunk is idle

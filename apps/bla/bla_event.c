@@ -16,8 +16,10 @@
  * at the top of the source tree.
  */
 
-#include "bla_event.h"
+#include "bla_station.h"
+#include "bla_trunk.h"
 
+#include "bla_event.h"
 
 int bla_event_init(
 	struct bla_event *self,
@@ -32,8 +34,8 @@ int bla_event_init(
 		case BLA_RING_STATION_EVENT :
 			{
 				struct bla_ring_station_event *src, *dest;
-				src = &data->station_ring_event;
-				dest = &self->_data.station_ring_event;
+				src = &data->ring_station_event;
+				dest = &self->_data.ring_station_event;
 				dest->station = src->station;
 				dest->trunk = src->trunk;
 			}
@@ -74,7 +76,22 @@ int bla_event_dispatch(struct bla_event *self)
 		bla_event_type_as_string(self));
 	switch (self->_type) {
 		case BLA_RING_STATION_EVENT:
-			/* TODO: Handle BLA ring station event */
+			{
+				struct bla_ring_station_event *event;
+				event = &self->_data.ring_station_event;
+				ast_log(LOG_NOTICE, "Dispatching '%s' event for station '%s' from trunk '%s'",
+					bla_event_type_as_string(self),
+					bla_station_name(event->station),
+					bla_trunk_name(event->trunk));
+/*				return bla_station_handle_ring_event(
+					event->station, event->trunk, self->_timestamp); */
+				/* TODO: Handle BLA ring station event */
+				/* FIXME: Somehow I'm getting eight BLA_RING_STATION_EVENT's despite having seven stations */
+				/* TODO: Check if the station is busy */
+				/* TODO: Check if the station is already ringing */
+				/* TODO: Check if the station's ring cooldown is in effect */
+				/* TODO: Create a new thread to ring the station */
+			}
 			break;
 		default:
 			ast_log(LOG_ERROR, "Unknown BLA event type '%s'",

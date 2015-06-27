@@ -134,8 +134,8 @@ int bla_event_queue_ring_station(
 	union bla_event_data data;
 
 	/* Build the ring station event */
-	data.station_ring_event.station = station;
-	data.station_ring_event.trunk = trunk;
+	data.ring_station_event.station = station;
+	data.ring_station_event.trunk = trunk;
 
 	event = bla_event_alloc();  /* FIXME: Make sure someone handles the bla_event reference */
 	if (bla_event_init(event, BLA_RING_STATION_EVENT, &data, ast_tvnow())) {

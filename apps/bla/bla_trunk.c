@@ -59,9 +59,12 @@ int bla_trunk_destroy(struct bla_trunk *self)
 	return 0;
 }
 
-void bla_trunk_add_station(struct bla_trunk *self, const char *station_name)
+void bla_trunk_add_station_ref(struct bla_trunk *self, const char *station_name)
 {
 	struct bla_station_ref *station_ref;
+
+	ast_log(LOG_NOTICE, "Adding reference to BLA station '%s' for BLA trunk '%s'",
+		station_name, bla_trunk_name(self));
 
 	station_ref = bla_station_ref_alloc();
 	bla_station_ref_init(station_ref);

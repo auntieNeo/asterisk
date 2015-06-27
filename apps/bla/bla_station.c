@@ -54,6 +54,9 @@ void bla_station_add_trunk_ref(struct bla_station *self, const char *trunk_name)
 {
 	struct bla_trunk_ref *trunk_ref;
 
+	ast_log(LOG_NOTICE, "Adding reference to BLA trunk '%s' for BLA station '%s'",
+		trunk_name, bla_station_name(self));
+
 	trunk_ref = bla_trunk_ref_alloc();
 	bla_trunk_ref_init(trunk_ref);
 	bla_trunk_ref_set_name(trunk_ref, trunk_name);
