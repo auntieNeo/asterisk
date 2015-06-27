@@ -54,6 +54,12 @@ void bla_station_add_trunk_ref(struct bla_station *self, const char *trunk_name)
 {
 	struct bla_trunk_ref *trunk_ref;
 
+	/* Prevent adding duplicate references */
+	if ((trunk_ref = ao2_find(self->_trunk_refs, trunk_name, OBJ_SEARCH_KEY))) {
+		ao2_ref(trunk_ref, -1);
+		return;
+	}
+
 	ast_log(LOG_NOTICE, "Adding reference to BLA trunk '%s' for BLA station '%s'",
 		trunk_name, bla_station_name(self));
 
