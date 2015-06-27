@@ -95,6 +95,17 @@ static force_inline void bla_station_set_channel(struct bla_station *self, struc
 }
 
 /*!
+ * \brief Accessor for bla_station object's device
+ * \return bla_station device as char array
+ *
+ * This accessor function simply returns the bla_station object's device.
+ */
+static force_inline const char *bla_station_device(const struct bla_station *self)
+{
+	return self->_device;
+}
+
+/*!
  * \brief Initialize a bla_station object
  * \param self Pointer to the bla_station object to initialize
  *

@@ -30,6 +30,7 @@
 #include "bla_station.h"
 #include "bla_station_ref.h"
 #include "bla_trunk.h"
+#include "bla_trunk_ref.h"
 
 #include "bla_application.h"
 
@@ -142,10 +143,38 @@ static char *bla_application_show_stations(
 			return NULL;  /* Takes no arguments */
 		default:
 			{
-				/* TODO: Iterate through all of our stations */
-				/*struct ao2_iterator i; */
-				/* TODO: It looks like we need to turn bla_application into a singleton */
-/*				i = ao2_iterator_init(); */
+				RAII_VAR(struct bla_application *, app, bla_application_singleton(), ao2_cleanup);
+				/* Iterate over all of our stations */
+				struct bla_station *station;
+				struct ao2_iterator i;
+				i = ao2_iterator_init(app->_stations, 0);
+				while ((station = ao2_iterator_next(&i))) {
+					/* Print information about this station */
+					ast_cli(args->fd,
+						"Station Name: %s\n"
+						"  Device: %s\n"
+						"  Trunk(s):\n",
+						bla_station_name(station),
+						bla_station_device(station));
+					/* Iterate over this station's trunk references */
+					struct ao2_iterator j;
+					struct bla_trunk_ref *trunk_ref;
+					/* NOTE: No choice here but to cast away const for container; don't modify anything! */
+					j = ao2_iterator_init((struct ao2_container *)bla_station_trunk_refs(station), 0);
+					while ((trunk_ref = ao2_iterator_next(&j))) {
+						struct bla_trunk *trunk;
+						trunk = bla_trunk_ref_resolve(trunk_ref, app);
+						ao2_ref(trunk_ref, -1);
+						/* Print terse information about this trunk */
+						ast_cli(args->fd,
+							"    Trunk Name: %s\n",
+							bla_trunk_name(trunk));
+						ao2_ref(trunk, -1);
+					}
+					ao2_iterator_destroy(&j);
+					ao2_ref(station, -1);
+				}
+				ao2_iterator_destroy(&i);
 			}
 			return CLI_SUCCESS;
 	}
