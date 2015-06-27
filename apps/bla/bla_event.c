@@ -70,7 +70,7 @@ const char *bla_event_type_as_string(struct bla_event *self)
 int bla_event_dispatch(struct bla_event *self)
 {
 	/* Determine what to do based on the event type */
-	ast_log(LOG_ERROR, "Dispatching BLA event of type '%s'",
+	ast_log(LOG_NOTICE, "Dispatching BLA event of type '%s'",
 		bla_event_type_as_string(self));
 	switch (self->_type) {
 		case BLA_RING_STATION_EVENT:
