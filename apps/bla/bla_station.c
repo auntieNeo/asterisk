@@ -330,24 +330,39 @@ int bla_station_handle_ring_event(
 	 */
 
 	/* TODO: Check if the station is busy */
-	if (bla_station_is_busy(self))
+	if (bla_station_is_busy(self)) {
+		ast_log(LOG_NOTICE, "Not ringing BLA station '%s'; station is busy",
+			bla_station_name(self));
 		return 0;
+	}
 
 	/* Check if the station is already ringing */
-	if (bla_station_is_ringing(self))
+	if (bla_station_is_ringing(self)) {
+		ast_log(LOG_NOTICE, "Not ringing BLA station '%s'; station is already ringing",
+			bla_station_name(self));
 		return 0;
+	}
 
 	/* TODO: Check if the station has failed recently */
-	if (bla_station_is_failed(self))
+	if (bla_station_is_failed(self)) {
+		ast_log(LOG_NOTICE, "Not ringing BLA station '%s'; failed to dial station recently",
+			bla_station_name(self));
 		return 0;
+	}
 
 	/* TODO: Check if the station's ring cooldown is in effect */
-	if (bla_station_is_cooldown(self))
+	if (bla_station_is_cooldown(self)) {
+		ast_log(LOG_NOTICE, "Not ringing BLA station '%s'; station ring cooldown in effect",
+			bla_station_name(self));
 		return 0;
+	}
 
 	/* TODO: Check if this trunk has already timed out for this station */
-	if (bla_station_is_timeout(self, trunk))
+	if (bla_station_is_timeout(self, trunk)) {
+		ast_log(LOG_NOTICE, "Not ringing BLA station '%s'; BLA trunk '%s' reached timeout for station recently",
+			bla_station_name(self), bla_trunk_name(trunk));
 		return 0;
+	}
 
 	/* TODO: Ring the station */
 	bla_station_ring(self, trunk);
@@ -374,6 +389,9 @@ int bla_station_ring(
 	struct bla_trunk *trunk)
 {
 	struct ast_dial *dial;
+
+	ast_log(LOG_NOTICE, "Ringing BLA station '%s'",
+		bla_station_name(self));
 
 	/* TODO: Build a dial object */
 	if ((dial = ast_dial_create()) == NULL)
