@@ -138,8 +138,33 @@ int bla_event_queue_ring_station(
 	data.ring_station_event.trunk = trunk;
 
 	event = bla_event_alloc();  /* FIXME: Make sure someone handles the bla_event reference */
-	if (bla_event_init(event, BLA_RING_STATION_EVENT, &data, ast_tvnow())) {
-		ast_log(LOG_ERROR, "Failed to init ring event for BLA station '%s'",
+	if ((event == NULL) || bla_event_init(event, BLA_RING_STATION_EVENT, &data, ast_tvnow())) {
+		ast_log(LOG_ERROR, "Failed to create ring event for BLA station '%s'",
+			bla_station_name(station));
+		return -1;
+	}
+
+	/* Queue up this event */
+	bla_event_queue_enqueue(self, event);
+
+	return 0;
+}
+
+int bla_event_queue_station_dial_state(
+	struct bla_event_queue *self,
+	struct bla_station *station,
+	struct ast_dial *dial)
+{
+	struct bla_event *event;
+	union bla_event_data data;
+
+	/* Build the station dial state event */
+	data.station_dial_state_event.station = station;
+	data.station_dial_state_event.dial = dial;
+
+	event = bla_event_alloc();  /* FIXME: Make sure someone handles the bla_event reference */
+	if ((event == NULL) || bla_event_init(event, BLA_STATION_DIAL_STATE_EVENT, &data, ast_tvnow())) {
+		ast_log(LOG_ERROR, "Failed to create dial state event for BLA station '%s'",
 			bla_station_name(station));
 		return -1;
 	}

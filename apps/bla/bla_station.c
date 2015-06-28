@@ -23,7 +23,9 @@
 #include "asterisk/logger.h"
 #include "asterisk/strings.h"
 
+#include "bla_application.h"
 #include "bla_bridge.h"
+#include "bla_event_queue.h"
 #include "bla_trunk.h"
 #include "bla_trunk_ref.h"
 
@@ -314,6 +316,119 @@ int bla_station_dial_trunk(
 	 * join it (not here though).
 	 */
 
+	return 0;
+}
+
+int bla_station_handle_ring_event(
+	struct bla_station *self,
+	struct bla_trunk *trunk,
+	struct timeval timestamp)
+{
+	/* NOTE: This function is only ever called by the BLA event thread,
+	 * so all of these checks are effectively synchronous, even without
+	 * much locking.
+	 */
+
+	/* TODO: Check if the station is busy */
+	if (bla_station_is_busy(self))
+		return 0;
+
+	/* Check if the station is already ringing */
+	if (bla_station_is_ringing(self))
+		return 0;
+
+	/* TODO: Check if the station has failed recently */
+	if (bla_station_is_failed(self))
+		return 0;
+
+	/* TODO: Check if the station's ring cooldown is in effect */
+	if (bla_station_is_cooldown(self))
+		return 0;
+
+	/* TODO: Check if this trunk has already timed out for this station */
+	if (bla_station_is_timeout(self, trunk))
+		return 0;
+
+	/* TODO: Ring the station */
+	bla_station_ring(self, trunk);
+
+	return 0;
+}
+
+static void bla_station_dial_state_callback(struct ast_dial *dial)
+{
+	/* FIXME: This wouldn't need to access the app singleton if we just passed the event queue with the dial user data */
+	RAII_VAR(struct bla_application *, app, bla_application_singleton(), ao2_cleanup);
+	struct bla_station *station;
+
+	station = ast_dial_get_user_data(dial);
+
+	/* TODO: Queue up a station dial state event */
+	bla_event_queue_station_dial_state(
+		bla_application_event_queue(app),
+		station, dial);
+}
+
+int bla_station_ring(
+	struct bla_station *self,
+	struct bla_trunk *trunk)
+{
+	struct ast_dial *dial;
+
+	/* TODO: Build a dial object */
+	if ((dial = ast_dial_create()) == NULL)
+		return -1;
+
+	/* Add a callback for dial state changes */
+	ast_dial_set_user_data(dial, self);
+	ast_dial_set_state_callback(dial, bla_station_dial_state_callback);
+
+	/* Store the dial object in the station */
+	/* This lets us know that the station is currently ringing, and also
+	 * FIXME: There must be some other reason, otherwise I would rather
+	 * avoid the dial/station circular reference. */
+	bla_station_set_dial(self, dial);
+
+	/* TODO: Actually dial the station */
+	if (ast_dial_run(dial, bla_trunk_channel(trunk), 1 /*async*/) != AST_DIAL_RESULT_TRYING)
+	{
+		return -1;
+	}
+
+	return 0;
+}
+
+int bla_station_is_busy(struct bla_station *self)
+{
+	/* TODO */
+	return 0;
+}
+
+int bla_station_is_ringing(struct bla_station *self)
+{
+	/* The station must be ringing if it still has a dial handle object */
+	if (bla_station_get_dial(self) != NULL)
+		return 1;
+	return 0;
+}
+
+int bla_station_is_failed(struct bla_station *self)
+{
+	/* TODO */
+	return 0;
+}
+
+int bla_station_is_cooldown(struct bla_station *self)
+{
+	/* TODO */
+	return 0;
+}
+
+int bla_station_is_timeout(
+	struct bla_station *self,
+	struct bla_trunk *trunk)
+{
+	/* TODO */
 	return 0;
 }
 

@@ -19,6 +19,11 @@
 #ifndef _BLA_EVENT_H
 #define _BLA_EVENT_H
 
+/* Forward declarations */
+struct ast_dial;
+struct bla_station;
+struct bla_trunk;
+
 #include "asterisk.h"
 
 #include "asterisk/astobj2.h"
@@ -26,6 +31,7 @@
 
 enum bla_event_types {
 	BLA_RING_STATION_EVENT = 1,
+	BLA_STATION_DIAL_STATE_EVENT = 1,
 };
 
 union bla_event_data {
@@ -33,6 +39,10 @@ union bla_event_data {
 		struct bla_station *station;
 		struct bla_trunk *trunk;
 	} ring_station_event;
+	struct bla_station_dial_state_event {
+		struct bla_station *station;
+		struct ast_dial *dial;
+	} station_dial_state_event;
 };
 
 struct bla_event {

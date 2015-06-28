@@ -285,6 +285,10 @@ int bla_application_exec_trunk(
 	}
 
 	/* TODO: Decide what to do with an incoming trunk call */
+	/* TODO: Make sure the trunk doesn't already have a call (i.e. check for trunk->_chan == NULL) */
+
+	/* Associate the trunk with the incoming channel */
+	bla_trunk_set_channel(trunk, chan);
 
 	/* Start ringing stations */
 	bla_application_ring_trunk_stations(self, trunk);

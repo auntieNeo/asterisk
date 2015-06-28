@@ -21,6 +21,7 @@
 
 /* Forward declarations */
 struct ao2_container;
+struct ast_dial;
 struct bla_application;
 
 #include "asterisk.h"
@@ -28,7 +29,8 @@ struct bla_application;
 #include "asterisk/channel.h"
 
 struct bla_station {
-  struct ast_channel *_channel;
+	struct ast_channel *_channel;
+	struct ast_dial *_dial;
 	struct ao2_container *_trunk_refs;
 	char _name[AST_MAX_CONTEXT];
 	char _device[AST_MAX_CONTEXT];
@@ -36,6 +38,7 @@ struct bla_station {
 
 /*!
  * \brief Accessor for bla_station object's name
+ * \param self Pointer to the bla_station object
  * \return bla_station name as char array
  *
  * This accessor function simply returns the bla_station object's name.
@@ -106,6 +109,38 @@ static force_inline const char *bla_station_device(const struct bla_station *sel
 }
 
 /*!
+ * \brief Accessor for bla_station object's dial handle
+ * \param self Pointer to the bla_station object
+ * \return Pointer to the bla_station object's ast_dial object or NULL
+ *
+ * This accessor function returns a pointer to the ast_dial object, which is
+ * a handle for the dialing to the station in progress. If the station is not
+ * being dialed at the moment, then this function returns NULL.
+ */
+/* FIXME: I'm not sure I want to store bla_dial with the station; I might not need it */
+static force_inline struct ast_dial *bla_station_get_dial(const struct bla_station *self)
+{
+	return self->_dial;
+}
+
+/*!
+ * \brief Accessor for setting bla_station object's dial handle
+ * \param self Pointer to the bla_station object
+ * \param dial Pointer to the ast_dial object to set as the handle
+ *
+ * This accessor function sets the station's handle to the current dialing in
+ * progress to the station.
+ */
+static force_inline void bla_station_set_dial(struct bla_station *self, struct ast_dial *dial)
+{
+	/* Make sure we aren't overwriting an existing dial handle */
+	/* FIXME: How do I set the dial handle to NULL? This might be silly. */
+	ast_assert(!bla_station_is_ringing(self));
+
+	self->_dial = dial;
+}
+
+/*!
  * \brief Initialize a bla_station object
  * \param self Pointer to the bla_station object to initialize
  *
@@ -122,9 +157,9 @@ int bla_station_init(struct bla_station *self);
  *
  * This function cleans up the internal structures of a bla_station object.
  *
- * Note that the memory for the bla_station structure itself is not freed;
- * if the structure was allocated with bla_station_alloc(), then that memory
- * is managed by astobj2's reference counter.
+ * Note that the memory for the bla_station structure itself is not freed; if
+ * the structure was allocated with bla_station_alloc(), then that memory is
+ * managed by astobj2's reference counter.
  */
 int bla_station_destroy(struct bla_station *self);
 
@@ -191,6 +226,25 @@ struct bla_trunk *bla_station_find_idle_trunk(
 int bla_station_dial_trunk(
 	struct bla_station *self,
 	struct bla_trunk *trunk);
+
+int bla_station_handle_ring_event(
+	struct bla_station *self,
+	struct bla_trunk *trunk,
+	struct timeval timestamp);
+
+int bla_station_ring(
+	struct bla_station *self,
+	struct bla_trunk *trunk);
+
+int bla_station_is_busy(struct bla_station *self);
+
+int bla_station_is_ringing(struct bla_station *self);
+
+int bla_station_is_failed(struct bla_station *self);
+
+int bla_station_is_cooldown(struct bla_station *self);
+
+int bla_station_is_timeout(struct bla_station *self, struct bla_trunk *trunk);
 
 int bla_station_hash(void *arg, int flags);
 

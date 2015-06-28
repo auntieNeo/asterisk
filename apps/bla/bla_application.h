@@ -220,4 +220,18 @@ struct bla_trunk *bla_application_find_trunk(
 	struct bla_application *self,
 	const char *trunk_name);
 
+/*!
+ * \brief Accessor for bla_application object's event queue
+ * \param self Pointer to the bla_application object
+ * \return Pointer to the bla_event_queue object
+ *
+ * This accessor function returns a pointer to the BLA application's event queue
+ * object.
+ */
+static force_inline struct bla_event_queue *bla_application_event_queue(
+	struct bla_application *self)
+{
+	return self->_event_queue;
+}
+
 #endif

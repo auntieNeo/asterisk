@@ -66,6 +66,9 @@ const char *bla_event_type_as_string(struct bla_event *self)
 		BLA_EVENT_STRING(RING_STATION)
 	}
 
+	ast_log(LOG_ERROR, "No string for event type '%d'",
+		self->_type);
+
 	return "BLA_UNKNOWN_EVENT";
 }
 
@@ -83,14 +86,11 @@ int bla_event_dispatch(struct bla_event *self)
 					bla_event_type_as_string(self),
 					bla_station_name(event->station),
 					bla_trunk_name(event->trunk));
-/*				return bla_station_handle_ring_event(
-					event->station, event->trunk, self->_timestamp); */
-				/* TODO: Handle BLA ring station event */
-				/* FIXME: Somehow I'm getting eight BLA_RING_STATION_EVENT's despite having seven stations */
-				/* TODO: Check if the station is busy */
-				/* TODO: Check if the station is already ringing */
-				/* TODO: Check if the station's ring cooldown is in effect */
-				/* TODO: Create a new thread to ring the station */
+				/* Dispatch ring event to station object */
+				return bla_station_handle_ring_event(
+					event->station,
+					event->trunk,
+					self->_timestamp);
 			}
 			break;
 		default:
