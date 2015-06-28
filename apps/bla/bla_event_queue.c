@@ -117,12 +117,22 @@ void bla_event_queue_join(struct bla_event_queue *self)
 
 void bla_event_queue_enqueue(struct bla_event_queue *self, struct bla_event *event)
 {
+	ast_log(LOG_NOTICE, "BLA added '%s' event to its event queue",
+	       bla_event_type_as_string(event));
+
 	AST_LIST_INSERT_TAIL(&self->_events, event, _list_entry);
 }
 
 struct bla_event *bla_event_queue_dequeue(struct bla_event_queue *self)
 {
-	return AST_LIST_REMOVE_HEAD(&self->_events, _list_entry);
+	struct bla_event *event;
+
+	event = AST_LIST_REMOVE_HEAD(&self->_events, _list_entry);
+
+	ast_log(LOG_NOTICE, "BLA removed '%s' event from its event queue",
+	       bla_event_type_as_string(event));
+
+	return event;
 }
 
 int bla_event_queue_ring_station(

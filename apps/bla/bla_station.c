@@ -36,7 +36,9 @@ int bla_station_init(struct bla_station *self)
 	ast_log(LOG_NOTICE, "Initializing BLA station");
 
 	self->_name[0] = '\0';
-	self->_device[0] = '\0';
+	self->_device_string[0] = '\0';
+	self->_tech = NULL;
+	self->_device = NULL;
 	self->_trunk_refs = ao2_container_alloc(
 		  1,
 		  (ao2_hash_fn*)bla_trunk_ref_hash,
