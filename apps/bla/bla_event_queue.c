@@ -129,8 +129,9 @@ struct bla_event *bla_event_queue_dequeue(struct bla_event_queue *self)
 
 	event = AST_LIST_REMOVE_HEAD(&self->_events, _list_entry);
 
-	ast_log(LOG_NOTICE, "BLA removed '%s' event from its event queue",
-	       bla_event_type_as_string(event));
+	if (event != NULL)
+		ast_log(LOG_NOTICE, "BLA removed '%s' event from its event queue",
+			bla_event_type_as_string(event));
 
 	return event;
 }
