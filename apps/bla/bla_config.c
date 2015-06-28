@@ -51,6 +51,10 @@ static int bla_config_handle_station_trunk(
 	const struct aco_option *opt,
 	struct ast_variable *var,
 	struct bla_station *station);
+static int bla_config_handle_station_device(
+	const struct aco_option *opt,
+	struct ast_variable *var,
+	struct bla_station *station);
 
 static struct bla_trunk *bla_config_alloc_trunk(
 	const char *category);
@@ -161,7 +165,7 @@ int bla_config_init(struct bla_config *self)
 	/* FIXME: This can't handle multiple trunk strings */
 /*	aco_option_register(&bla_config_info, "trunk", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _trunk)); */
 	aco_option_register_custom(&bla_config_info, "trunk", ACO_EXACT, bla_station_types, "", (aco_option_handler)bla_config_handle_station_trunk, 0);
-	aco_option_register(&bla_config_info, "device", ACO_EXACT, bla_station_types, "", OPT_CHAR_ARRAY_T, 1, CHARFLDSET(struct bla_station, _device));
+	aco_option_register_custom(&bla_config_info, "device", ACO_EXACT, bla_station_types, "", (aco_option_handler)bla_config_handle_station_device, 0);
 
 	/* BLA trunk options */
 	aco_option_register(&bla_config_info, "type", ACO_EXACT, bla_trunk_types, NULL, OPT_NOOP_T, 0, 0);
@@ -227,12 +231,26 @@ static int bla_config_handle_station_trunk(
 	bla_station_add_trunk_ref(station, trunk_name);
 
 	/* NOTE: We validate the existance of this trunk _after_ parsing the
-	 * entire configuration. There is no other way to resolve the name of
-	 * the trunk until after all the trunks have been parsed.
+	 * entire configuration. There is no way to resolve the name of the
+	 * trunk before all the trunks have been parsed.
 	 *
-	 * We also add our station references at a later time for the same
-	 * reason.
+	 * We also add our station references at a later time for similar
+	 * reasons.
 	 */
+
+	return 0;
+}
+
+static int bla_config_handle_station_device(
+	const struct aco_option *opt,
+	struct ast_variable *var,
+	struct bla_station *station)
+{
+	/* Set the device string for this station
+	 * (This parses both the tech and the device from the string)
+	 */
+	const char *device_string = var->value;
+	bla_station_set_device_string(station, device_string);
 
 	return 0;
 }

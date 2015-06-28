@@ -396,6 +396,9 @@ int bla_station_ring(
 	/* TODO: Build a dial object */
 	if ((dial = ast_dial_create()) == NULL)
 		return -1;
+	/* Append the station channel we are dialing */
+	ast_dial_append(dial, bla_station_tech(self), bla_station_device(self),
+		NULL);  /* TODO: Giving the channel assigned ID's might be useful for debugging */
 
 	/* Add a callback for dial state changes */
 	ast_dial_set_user_data(dial, self);

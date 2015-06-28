@@ -33,7 +33,13 @@ struct bla_station {
 	struct ast_dial *_dial;
 	struct ao2_container *_trunk_refs;
 	char _name[AST_MAX_CONTEXT];
-	char _device[AST_MAX_CONTEXT];
+
+	/* NOTE: _device_string is actually a character buffer that holds both
+	 * _tech and _device. The '/' separator is set to '\0' with strsep().
+	 */
+	char _device_string[AST_MAX_CONTEXT];  /* FIXME: I'm not sure AST_MAX_CONTEXT is the length limit for attributes... */
+	char *_tech;
+	char *_device;
 };
 
 /*!
@@ -56,7 +62,7 @@ static force_inline const char *bla_station_name(const struct bla_station *self)
 static force_inline void bla_station_set_name(struct bla_station *self, const char *name)
 {
 	strncpy((char *)self->_name, name, AST_MAX_CONTEXT);
-  self->_name[AST_MAX_CONTEXT - 1] = '\0';
+	self->_name[AST_MAX_CONTEXT - 1] = '\0';
 }
 
 /*!
@@ -91,19 +97,66 @@ static force_inline struct ast_channel *bla_station_channel(const struct bla_sta
  */
 static force_inline void bla_station_set_channel(struct bla_station *self, struct ast_channel *channel)
 {
-  /* FIXME: Check to make sure we aren't doing something bad
-   * (e.g. Don't overwrite an existing channel prematurely)
-   */
-  self->_channel = channel;
+	/* FIXME: Check to make sure we aren't doing something bad
+	 * (e.g. Don't overwrite an existing channel prematurely)
+	 */
+	self->_channel = channel;
+}
+
+/*!
+ * \brief Accessor for setting bla_station object's device string
+ * \param self Pointer to the bla_station object
+ * \param device_string Character array to copy for the station's device string
+ *
+ * This accessor function sets the bla_station object's device string.
+ *
+ * The device string is the string specified for the 'device' attribute of
+ * stations in the bla.conf file. It is a combination of the station tech and
+ * station device separated by a '/' (forward-slash) character.
+ *
+ * Use the bla_station_tech() and bla_station_device() functions to split the
+ * device string and get the tech and device of the station respectively.
+ */
+static force_inline void bla_station_set_device_string(
+	struct bla_station *self, const char *device_string)
+{
+	/* Copy the entire device string into our buffer */
+	/* FIXME: I'm not sure AST_MAX_CONTEXT is the length limit for attributes... */
+	strncpy(self->_device_string, device_string, AST_MAX_CONTEXT);
+	self->_device_string[AST_MAX_CONTEXT - 1] = '\0';
+
+	/* Split the device string buffer into tech and device */
+	self->_device = self->_device_string;
+	self->_tech = strsep(&self->_device, "/");
+}
+
+/*!
+ * \brief Accessor for bla_station object's tech
+ * \param self Pointer to the bla_station object
+ * \return The station's tech as a character array
+ *
+ * This accessor function return's the tech (e.g. SIP, Local, IAX) that BLA
+ * uses to connect to this station. The tech is split from the station's device
+ * string, which must be set by bla_station_set_device_string().
+ */
+static force_inline const char *bla_station_tech(
+	const struct bla_station *self)
+{
+	return self->_tech;
 }
 
 /*!
  * \brief Accessor for bla_station object's device
- * \return bla_station device as char array
+ * \param self Pointer to the bla_station object
+ * \return The station's device as a character array
  *
- * This accessor function simply returns the bla_station object's device.
+ * This accessor function return's the device that BLA uses to connect to this
+ * station (e.g. 'station3' in 'SIP/station3'). The device is split from the
+ * station's device string, which must be set by
+ * bla_station_set_device_string().
  */
-static force_inline const char *bla_station_device(const struct bla_station *self)
+static force_inline const char *bla_station_device(
+	const struct bla_station *self)
 {
 	return self->_device;
 }
