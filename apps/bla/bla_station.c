@@ -372,6 +372,15 @@ int bla_station_handle_ring_event(
 	return 0;
 }
 
+int bla_station_handle_dial_state_event(
+	struct bla_station *self,
+	struct ast_dial *dial,
+	struct timeval timestamp)
+{
+	/* TODO: Decide what to do given the current dial state */
+	return -1;
+}
+
 static void bla_station_dial_state_callback(struct ast_dial *dial)
 {
 	/* FIXME: This wouldn't need to access the app singleton if we just passed the event queue with the dial user data */

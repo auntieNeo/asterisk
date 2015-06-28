@@ -102,12 +102,22 @@ int bla_event_dispatch(struct bla_event *self)
 					event->trunk,
 					self->_timestamp);
 			}
-			break;
-		default:
-			ast_log(LOG_ERROR, "Tried to dispatch BLA event of unknown type '%s'",
-				bla_event_type_as_string(self));
-			return -1;
+		case BLA_STATION_DIAL_STATE_EVENT:
+			{
+				struct bla_station_dial_state_event *event;
+				event = &self->_data.station_dial_state_event;
+				ast_log(LOG_NOTICE, "Dispatching '%s' event for station '%s'",
+					bla_event_type_as_string(self),
+					bla_station_name(event->station));
+				/* Dispatch dial state event to station object */
+				return bla_station_handle_dial_state_event(
+					event->station,
+					event->dial,
+					self->_timestamp);
+			}
 	}
 
-	return 0;
+	ast_log(LOG_ERROR, "Tried to dispatch BLA event of unknown type '%s'",
+			bla_event_type_as_string(self));
+	return -1;
 }

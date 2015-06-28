@@ -285,6 +285,11 @@ int bla_station_handle_ring_event(
 	struct bla_trunk *trunk,
 	struct timeval timestamp);
 
+int bla_station_handle_dial_state_event(
+	struct bla_station *self,
+	struct ast_dial *dial,
+	struct timeval timestamp);
+
 int bla_station_ring(
 	struct bla_station *self,
 	struct bla_trunk *trunk);
