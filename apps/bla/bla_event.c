@@ -73,6 +73,7 @@ const char *bla_event_type_as_string(struct bla_event *self)
 #define BLA_EVENT_STRING(type) _BLA_EVENT_STRING( BLA_ ## type ## _EVENT )
 	switch (self->_type) {
 		BLA_EVENT_STRING(RING_STATION)
+		BLA_EVENT_STRING(STATION_DIAL_STATE)
 	}
 
 	ast_log(LOG_ERROR, "No string for event type '%d'",
@@ -103,7 +104,7 @@ int bla_event_dispatch(struct bla_event *self)
 			}
 			break;
 		default:
-			ast_log(LOG_ERROR, "Unknown BLA event type '%s'",
+			ast_log(LOG_ERROR, "Tried to dispatch BLA event of unknown type '%s'",
 				bla_event_type_as_string(self));
 			return -1;
 	}
