@@ -294,6 +294,7 @@ int bla_application_exec_trunk(
 	bla_application_ring_trunk_stations(self, trunk);
 
 	/* TODO: Wait for a station to answer or for us to timeout */
+	ast_safe_sleep(chan, 9000);
 
 	return 0;
 }
