@@ -40,6 +40,15 @@ int bla_event_init(
 				dest->trunk = src->trunk;
 			}
 			break;
+		case BLA_STATION_DIAL_STATE_EVENT:
+			{
+				struct bla_station_dial_state_event *src, *dest;
+				src = &data->station_dial_state_event;
+				dest = &self->_data.station_dial_state_event;
+				dest->station = src->station;
+				dest->dial = src->dial;
+			}
+			break;
 		default:
 			ast_log(LOG_ERROR, "Unknown BLA event type '%d'",
 				type);
