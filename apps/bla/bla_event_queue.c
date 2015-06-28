@@ -173,6 +173,9 @@ int bla_event_queue_station_dial_state(
 	struct bla_event *event;
 	union bla_event_data data;
 
+	ast_log(LOG_NOTICE, "Creating dial state event for BLA station '%s'",
+	       bla_station_name(station));
+
 	/* Build the station dial state event */
 	data.station_dial_state_event.station = station;
 	data.station_dial_state_event.dial = dial;

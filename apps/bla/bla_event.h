@@ -31,7 +31,7 @@ struct bla_trunk;
 
 enum bla_event_types {
 	BLA_RING_STATION_EVENT = 1,
-	BLA_STATION_DIAL_STATE_EVENT = 1,
+	BLA_STATION_DIAL_STATE_EVENT,
 };
 
 union bla_event_data {
