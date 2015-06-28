@@ -380,6 +380,9 @@ static void bla_station_dial_state_callback(struct ast_dial *dial)
 
 	station = ast_dial_get_user_data(dial);
 
+	ast_log(LOG_NOTICE, "Inside dial state callback for BLA station '%s'",
+		bla_station_name(station));
+
 	/* TODO: Queue up a station dial state event */
 	bla_event_queue_station_dial_state(
 		bla_application_event_queue(app),
