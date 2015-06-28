@@ -23,6 +23,7 @@
 
 #include "bla_event.h"
 #include "bla_station.h"
+#include "bla_trunk.h"
 
 #include "bla_event_queue.h"
 
@@ -144,14 +145,17 @@ int bla_event_queue_ring_station(
 	struct bla_event *event;
 	union bla_event_data data;
 
+	ast_log(LOG_NOTICE, "Creating ring event for BLA station '%s' from BLA trunk '%s'",
+	       bla_station_name(station), bla_trunk_name(trunk));
+
 	/* Build the ring station event */
 	data.ring_station_event.station = station;
 	data.ring_station_event.trunk = trunk;
 
 	event = bla_event_alloc();  /* FIXME: Make sure someone handles the bla_event reference */
 	if ((event == NULL) || bla_event_init(event, BLA_RING_STATION_EVENT, &data, ast_tvnow())) {
-		ast_log(LOG_ERROR, "Failed to create ring event for BLA station '%s'",
-			bla_station_name(station));
+		ast_log(LOG_ERROR, "Failed to create ring event for BLA station '%s' from BLA trunk '%s'",
+			bla_station_name(station), bla_trunk_name(trunk));
 		return -1;
 	}
 
