@@ -25,6 +25,7 @@
 
 #include "bla_application.h"
 #include "bla_bridge.h"
+#include "bla_common.h"
 #include "bla_event_queue.h"
 #include "bla_trunk.h"
 #include "bla_trunk_ref.h"
@@ -367,9 +368,7 @@ int bla_station_handle_ring_event(
 	}
 
 	/* TODO: Ring the station */
-	bla_station_ring(self, trunk);
-
-	return 0;
+	return bla_station_ring(self, trunk);
 }
 
 int bla_station_handle_dial_state_event(
@@ -381,8 +380,9 @@ int bla_station_handle_dial_state_event(
 
 	/* TODO: Decide what to do given the current dial state */
 	dial_result = ast_dial_state(dial);
-	ast_log(LOG_NOTICE, "BLA station '%s' is has dial state '%d'",
-		bla_station_name(self), dial_result);
+	ast_log(LOG_NOTICE, "BLA station '%s' has dial state '%s'",
+		bla_station_name(self),
+		bla_dial_result_as_string(dial_result));
 	switch (dial_result) {
 		case AST_DIAL_RESULT_ANSWERED:
 			{
@@ -397,7 +397,7 @@ int bla_station_handle_dial_state_event(
 			break;
 	}
 
-	return -1;
+	return 0;
 }
 
 static void bla_station_dial_state_callback(struct ast_dial *dial)
@@ -444,8 +444,13 @@ int bla_station_ring(
 	bla_station_set_dial(self, dial);
 
 	/* TODO: Actually dial the station */
-	if (ast_dial_run(dial, bla_trunk_channel(trunk), 1 /*async*/) != AST_DIAL_RESULT_TRYING)
+	enum ast_dial_result dial_result;
+	if ((dial_result = ast_dial_run(dial, bla_trunk_channel(trunk), 1 /*async*/)) != AST_DIAL_RESULT_TRYING)
 	{
+		ast_log(LOG_ERROR, "Failed to dial BLA station '%s': ast_dial_run() returned '%s'",
+			bla_station_name(self),
+			bla_dial_result_as_string(dial_result));
+		ast_dial_destroy(dial);
 		return -1;
 	}
 
