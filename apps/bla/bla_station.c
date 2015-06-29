@@ -392,10 +392,13 @@ int bla_station_handle_dial_state_event(
 				station_chan = ast_dial_answered(dial);
 
 				/* Make sure trunk hasn't been answered yet */
-				if (bla_trunk_state(trunk) | BLA_STATE_ANSWERED) {
+				if (bla_trunk_state(trunk) & BLA_STATE_ANSWERED) {
 					/* More than one station tried to pick
 					 * up at nearly the same time, and this
 					 * station happened to be too late. */
+					ast_log(LOG_NOTICE, "BLA station '%s' tried to pick up call from BLA trunk '%s', but the call had already been answered!",
+						bla_station_name(self), bla_trunk_name(trunk));
+
 					/* Drop the call */
 					ast_hangup(station_chan);
 
