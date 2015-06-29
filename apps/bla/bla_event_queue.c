@@ -168,6 +168,7 @@ int bla_event_queue_ring_station(
 int bla_event_queue_station_dial_state(
 	struct bla_event_queue *self,
 	struct bla_station *station,
+	struct bla_trunk *trunk,
 	struct ast_dial *dial)
 {
 	struct bla_event *event;
@@ -178,6 +179,7 @@ int bla_event_queue_station_dial_state(
 
 	/* Build the station dial state event */
 	data.station_dial_state_event.station = station;
+	data.station_dial_state_event.trunk = trunk;
 	data.station_dial_state_event.dial = dial;
 
 	event = bla_event_alloc();  /* FIXME: Make sure someone handles the bla_event reference */

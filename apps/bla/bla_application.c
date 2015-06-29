@@ -296,6 +296,10 @@ int bla_application_exec_trunk(
 	/* TODO: Wait for a station to answer or for us to timeout */
 	ast_safe_sleep(chan, 9000);
 
+	/* TODO: Join the bridge */
+
+	/* TODO: Clean up */
+
 	return 0;
 }
 

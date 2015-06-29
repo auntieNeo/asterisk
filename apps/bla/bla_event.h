@@ -41,6 +41,7 @@ union bla_event_data {
 	} ring_station_event;
 	struct bla_station_dial_state_event {
 		struct bla_station *station;
+		struct bla_trunk *trunk;
 		struct ast_dial *dial;
 	} station_dial_state_event;
 };

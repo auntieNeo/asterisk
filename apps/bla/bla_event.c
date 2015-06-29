@@ -46,6 +46,7 @@ int bla_event_init(
 				src = &data->station_dial_state_event;
 				dest = &self->_data.station_dial_state_event;
 				dest->station = src->station;
+				dest->trunk = src->trunk;
 				dest->dial = src->dial;
 			}
 			break;
@@ -112,6 +113,7 @@ int bla_event_dispatch(struct bla_event *self)
 				/* Dispatch dial state event to station object */
 				return bla_station_handle_dial_state_event(
 					event->station,
+					event->trunk,
 					event->dial,
 					self->_timestamp);
 			}

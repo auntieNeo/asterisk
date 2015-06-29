@@ -287,6 +287,7 @@ int bla_station_handle_ring_event(
 
 int bla_station_handle_dial_state_event(
 	struct bla_station *self,
+	struct bla_trunk *trunk,
 	struct ast_dial *dial,
 	struct timeval timestamp);
 
@@ -305,6 +306,20 @@ int bla_station_is_cooldown(struct bla_station *self);
 int bla_station_is_timeout(struct bla_station *self, struct bla_trunk *trunk);
 
 int bla_station_hash(void *arg, int flags);
+
+/*!
+ * \brief Answer the trunk on behalf of this station
+ * \param self Pointer to the bla_station object
+ * \param trunk Pointer to the bla_trunk that initiated the call
+ *
+ * This function spawns a thread that answers the trunk channel, notifies the
+ * trunk's thread, and joins the station's channel to the trunk's bridge.
+ *
+ * This function is non-blocking; everything is done in the spawned thread.
+ */
+int bla_station_answer_trunk(
+	struct bla_station *self,
+	struct bla_trunk *trunk);
 
 int bla_station_cmp(
 	const struct bla_station *self,

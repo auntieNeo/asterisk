@@ -138,16 +138,17 @@ int bla_event_queue_ring_station(
  * \brief Schedule a dial state event for a station
  * \param self Pointer to the bla_event_queue object
  * \param station Pointer to the bla_station whose dial state has changed
+ * \param trunk Pointer to the bla_trunk that dialed
  * \param dial Pointer to the ast_dial object that knows the dial state
  *
  * This function schedules a station dial state event. These events are created
  * by a callback set with the ast_dial_set_state_callback() function. Stations
- * handle dial state events to transition the stations from ringing to
- * connected.
+ * handle dial state events to transition themselves from ringing to connected.
  */
 int bla_event_queue_station_dial_state(
 	struct bla_event_queue *self,
 	struct bla_station *station,
+	struct bla_trunk *trunk,
 	struct ast_dial *dial);
 
 #endif

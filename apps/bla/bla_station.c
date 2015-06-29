@@ -269,8 +269,8 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 	ast_cond_signal(&args->cond);
 	ast_mutex_unlock(&args->lock);
 
-  /* Answer the trunk channel */
-  ast_answer(bla_trunk_channel(args->trunk));
+	/* Answer the trunk channel */
+	ast_answer(bla_trunk_channel(args->trunk));
 
 	/* Join the trunk to the bridge */
 	bla_bridge_join_trunk(bla_trunk_bridge(args->trunk), args->trunk);
@@ -281,8 +281,8 @@ static void *bla_station_dial_trunk_thread(struct bla_dial_trunk_args *args)
 	/* Clean up the dial thread resources */
 	ast_cond_destroy(&wait_args.cond);
 	ast_mutex_destroy(&wait_args.lock);
-  /* Clean up the trunk channel */
-  bla_trunk_set_channel(args->trunk, NULL);
+	/* Clean up the trunk channel */
+	bla_trunk_set_channel(args->trunk, NULL);
 
 	return NULL;
 }
@@ -314,9 +314,9 @@ int bla_station_dial_trunk(
 	ast_mutex_destroy(&args.lock);
 	ast_cond_destroy(&args.cond);
 
-	/* FIXME: We never seem to join this dial trunk thread
-	 * anywhere... Somehow we need a way to signal it to stop and
-	 * join it (not here though).
+	/* FIXME: We never seem to join this dial trunk thread anywhere...
+	 * Somehow we need a way to signal it to stop and join it (not here
+	 * though).
 	 */
 
 	return 0;
@@ -373,6 +373,7 @@ int bla_station_handle_ring_event(
 
 int bla_station_handle_dial_state_event(
 	struct bla_station *self,
+	struct bla_trunk *trunk,
 	struct ast_dial *dial,
 	struct timeval timestamp)
 {
@@ -389,32 +390,57 @@ int bla_station_handle_dial_state_event(
 				struct ast_channel *station_chan;
 				/* Get the channel that answered */
 				station_chan = ast_dial_answered(dial);
+
+				/* TODO: Make sure station's channel is NULL */
+
 				/* TODO: Set the station's channel */
-				/* TODO: Answer the trunk's channel */
-				/* TODO: Make a thread in which the station can join the bridge */
-				/* TODO: Notify the trunk thread that it can join the bridge */
+				bla_station_set_channel(self, station_chan);
+
+				/* TODO: Free the dial object? */
+
+				/* TODO: Answer the trunk (and bridge the station) */
+				return bla_station_answer_trunk(self, trunk);
 			}
+			break;
+		case AST_DIAL_RESULT_INVALID:
+		case AST_DIAL_RESULT_FAILED:
+		case AST_DIAL_RESULT_TIMEOUT:
+		case AST_DIAL_RESULT_HANGUP:
+		case AST_DIAL_RESULT_UNANSWERED:
+			/* TODO: Stop dialing here? I think it might stop automatically. */
+			/* TODO: Free the dial object? */
+			/* TODO: Mark the station as not ringing */
+			/* TODO: Set appropriate timestamps for calculating cooldown and timeouts */
+			break;
+		case AST_DIAL_RESULT_TRYING:
+		case AST_DIAL_RESULT_RINGING:
+		case AST_DIAL_RESULT_PROGRESS:
+		case AST_DIAL_RESULT_PROCEEDING:
+			/* TODO: Just chill here */
 			break;
 	}
 
 	return 0;
 }
 
+struct bla_station_dial_state_args {
+	struct bla_station *station;
+	struct bla_trunk *trunk;
+/*	struct bla_event_queue *event_queue; */  /* TODO */
+};
 static void bla_station_dial_state_callback(struct ast_dial *dial)
 {
 	/* FIXME: This wouldn't need to access the app singleton if we just passed the event queue with the dial user data */
 	RAII_VAR(struct bla_application *, app, bla_application_singleton(), ao2_cleanup);
-	struct bla_station *station;
-
-	station = ast_dial_get_user_data(dial);
+	struct bla_station_dial_state_args *args = ast_dial_get_user_data(dial);
 
 	ast_log(LOG_NOTICE, "Inside dial state callback for BLA station '%s'",
-		bla_station_name(station));
+		bla_station_name(args->station));
 
-	/* TODO: Queue up a station dial state event */
+	/* Queue up a station dial state event */
 	bla_event_queue_station_dial_state(
 		bla_application_event_queue(app),
-		station, dial);
+		args->station, args->trunk, dial);
 }
 
 int bla_station_ring(
@@ -422,6 +448,7 @@ int bla_station_ring(
 	struct bla_trunk *trunk)
 {
 	struct ast_dial *dial;
+	struct bla_station_dial_state_args *args;
 
 	ast_log(LOG_NOTICE, "Ringing BLA station '%s'",
 		bla_station_name(self));
@@ -434,7 +461,10 @@ int bla_station_ring(
 		NULL);  /* TODO: Giving the channel assigned ID's might be useful for debugging */
 
 	/* Add a callback for dial state changes */
-	ast_dial_set_user_data(dial, self);
+	args = ast_malloc(sizeof(struct bla_station_dial_state_args));
+	args->station = self;
+	args->trunk = trunk;
+	ast_dial_set_user_data(dial, args);
 	ast_dial_set_state_callback(dial, bla_station_dial_state_callback);
 
 	/* Store the dial object in the station */
@@ -450,6 +480,7 @@ int bla_station_ring(
 		ast_log(LOG_ERROR, "Failed to dial BLA station '%s': ast_dial_run() returned '%s'",
 			bla_station_name(self),
 			bla_dial_result_as_string(dial_result));
+		ast_free(ast_dial_get_user_data(dial));
 		ast_dial_destroy(dial);
 		return -1;
 	}
@@ -488,6 +519,30 @@ int bla_station_is_timeout(
 	struct bla_trunk *trunk)
 {
 	/* TODO */
+	return 0;
+}
+
+static void *bla_station_answer_trunk_thread(void *args)
+{
+	ast_log(LOG_NOTICE, "Inside answer trunk thread");
+
+	return NULL;
+}
+
+int bla_station_answer_trunk(
+	struct bla_station *self,
+	struct bla_trunk *trunk)
+{
+	pthread_t thread;
+
+	/* TODO: Create a thread to answer the trunk */
+	ast_pthread_create_detached_background(
+		&thread, NULL, (void *(*)(void*))bla_station_answer_trunk_thread, NULL);
+
+	/* TODO: Answer the trunk's channel */
+	/* TODO: Notify the trunk thread that it can join the bridge */
+	/* TODO: Stop the ringing for stations that no longer have any ringing trunks */
+
 	return 0;
 }
 
