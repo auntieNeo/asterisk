@@ -291,21 +291,21 @@ int bla_station_dial_trunk(
 	struct bla_station *self,
 	struct bla_trunk *trunk)
 {
+	pthread_t thread;
 	struct bla_dial_trunk_args args = {
 		.station = self,
 		.trunk = trunk,
 	};
-	pthread_t thread;
 
+	/* Create a thread to dial, ring, and join the trunk to our bridge */
 	ast_mutex_init(&args.lock);
 	ast_cond_init(&args.cond, NULL);
-	/* Create a thread to dial, ring, and join the trunk to our bridge */
-	ast_log(LOG_NOTICE, "Station '%s' thread for BLA dial trunk thread",
-		bla_station_name(self));
 	ast_mutex_lock(&args.lock);
 	ast_pthread_create_detached_background(
 		&thread, NULL, (void *(*)(void*))bla_station_dial_trunk_thread, &args);
 	ast_autoservice_start(bla_station_channel(self));
+	/* FIXME: Wait for... what exactly are we waiting for here? */
+	/* FIXME: Implement station timeouts here? We can't wait forever... */
 	ast_cond_wait(&args.cond, &args.lock);
 	ast_autoservice_stop(bla_station_channel(self));
 	ast_log(LOG_NOTICE, "Station '%s' thread finished waiting for BLA dial trunk thread",
@@ -531,23 +531,35 @@ struct bla_station_answer_trunk_args {
 static void *bla_station_answer_trunk_thread(
 	struct bla_station_answer_trunk_args *args)
 {
+	struct bla_station *station;
+	struct bla_trunk *trunk;
+
+	station = args->station;
+	trunk = args->trunk;
+
+	/* Signal the controlling thread to continue now that we have copied our
+	 * arguments */
+	ast_mutex_lock(&args->lock);
+	ast_cond_signal(&args->cond);
+	ast_mutex_unlock(&args->lock);
+
 	ast_log(LOG_NOTICE, "Entering thread for BLA station '%s' answering BLA trunk '%s'",
-		bla_station_name(args->station),
-		bla_trunk_name(args->trunk));
+		bla_station_name(station),
+		bla_trunk_name(trunk));
 
 	/* TODO: Answer the trunk's channel */
-	ast_answer(bla_trunk_channel(args->trunk));
+	ast_answer(bla_trunk_channel(trunk));
 
 	ast_log(LOG_NOTICE, "About to notify BLA trunk '%s' thread from BLA station '%s'",
-		bla_trunk_name(args->trunk),
-		bla_station_name(args->station));
+		bla_trunk_name(trunk),
+		bla_station_name(station));
 
 	/* TODO: Notify the trunk thread that it can join the bridge */
-	bla_trunk_station_responding(args->trunk, args->station);
+	bla_trunk_station_responding(trunk, station);
 
 	ast_log(LOG_NOTICE, "Just notified BLA trunk '%s' thread from BLA station '%s'",
-		bla_trunk_name(args->trunk),
-		bla_station_name(args->station));
+		bla_trunk_name(trunk),
+		bla_station_name(station));
 
 	/* TODO: Stop the ringing for stations that no longer have any ringing trunks */
 
@@ -561,10 +573,23 @@ int bla_station_answer_trunk(
 	struct bla_trunk *trunk)
 {
 	pthread_t thread;
+	struct bla_station_answer_trunk_args args = {
+		.station = self,
+		.trunk = trunk,
+	};
 
 	/* TODO: Create a thread to answer the trunk */
+	ast_mutex_init(&args.lock);
+	ast_cond_init(&args.cond, NULL);
+	ast_mutex_lock(&args.lock);
 	ast_pthread_create_detached_background(
-		&thread, NULL, (void *(*)(void*))bla_station_answer_trunk_thread, NULL);
+		&thread, NULL, (void *(*)(void*))bla_station_answer_trunk_thread, &args);
+	/* TODO: Wait for the thread to finish copying its arguments from our
+	 * stack */
+	ast_cond_wait(&args.cond, &args.lock);
+	ast_mutex_unlock(&args.lock);
+	ast_mutex_destroy(&args.lock);
+	ast_cond_destroy(&args.cond);
 
 	return 0;
 }
