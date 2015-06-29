@@ -290,15 +290,30 @@ int bla_application_exec_trunk(
 	/* Associate the trunk with the incoming channel */
 	bla_trunk_set_channel(trunk, chan);
 
+	/* Get ready to wait for a station to respond (to avoid race
+	 * conditions) */
+	bla_trunk_anticipate_station(trunk);
+
 	/* Start ringing stations */
 	bla_application_ring_trunk_stations(self, trunk);
 
-	/* TODO: Wait for a station to answer or for us to timeout */
-	ast_safe_sleep(chan, 9000);
+	/* Wait for a station to answer or for us to timeout */
+	ast_log(LOG_NOTICE, "BLA trunk '%s' waiting for a station to respond",
+		bla_trunk_name(trunk));
+	if (bla_trunk_wait_for_station(trunk)) {
+		ast_log(LOG_NOTICE, "BLA trunk '%s' timed out waiting for a station to respond",
+			bla_trunk_name(trunk));
+		/* FIXME: Do cleanup here */
+	};
+	ast_log(LOG_NOTICE, "BLA trunk '%s' got a response from a station",
+		bla_trunk_name(trunk));
+/*	ast_safe_sleep(chan, 9000); */
 
 	/* TODO: Join the bridge */
 
 	/* TODO: Clean up */
+	/* TODO: Disassociate the trunk with the incoming channel */
+	bla_trunk_set_channel(trunk, NULL);
 
 	return 0;
 }

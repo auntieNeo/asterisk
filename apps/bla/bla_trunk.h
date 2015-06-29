@@ -35,6 +35,9 @@ struct bla_trunk {
 	unsigned int _mixing_interval;
 	char _name[AST_MAX_CONTEXT];
 	char _device[AST_MAX_CONTEXT];
+	/* Condition and lock used when waiting for stations */
+	ast_cond_t _cond;
+	ast_mutex_t _lock;
 };
 
 /*!
@@ -222,6 +225,33 @@ int bla_trunk_dial(struct bla_trunk *self);
  * it is initialized in this function.
  */
 struct bla_bridge *bla_trunk_bridge(struct bla_trunk *self);
+
+/* TODO: Document bla_trunk_anticipate_station() */
+void bla_trunk_anticipate_station(struct bla_trunk *self);
+
+/*!
+ * \breif Wait for a station to respond to this trunk's call
+ * \param self Pointer to the bla_trunk object
+ * \retval 0 on station responded
+ * \retval non-zero on timeout
+ *
+ * This function blocks until either a station responds to this trunk's call (by
+ * calling bla_trunk_station_responding()) or the trunk's call times out.
+ */
+int bla_trunk_wait_for_station(struct bla_trunk *self);
+
+/*!
+ * \breif Signal the trunk that a station has responded to the call
+ * \param self Pointer to the bla_trunk object
+ * \param station Pointer to the responding bla_station object
+ *
+ * This function is to be called by stations that are responding to this trunk's
+ * call. This will unblock the thread that has called
+ * bla_trunk_wait_for_station() with a positive result.
+ */
+void bla_trunk_station_responding(
+	struct bla_trunk *self,
+	struct bla_station *station);
 
 int bla_trunk_hash(void *arg, int flags);
 

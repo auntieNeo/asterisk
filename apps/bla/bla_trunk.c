@@ -44,6 +44,9 @@ int bla_trunk_init(struct bla_trunk *self)
 	/* A sample rate of zero tells the bridging API to use a reasonable default */
 	self->_internal_sample_rate = 0;
 
+	ast_mutex_init(&self->_lock);
+	ast_cond_init(&self->_cond, NULL);
+
 	return 0;
 }
 
@@ -55,6 +58,9 @@ int bla_trunk_destroy(struct bla_trunk *self)
 		/* FIXME: Do we need to do anything else to destroy the bridge? */
 		ao2_ref(self->_bridge, -1);
 	}
+
+	ast_cond_destroy(&self->_cond);
+	ast_mutex_destroy(&self->_lock);
 
 	return 0;
 }
@@ -100,6 +106,34 @@ struct bla_bridge *bla_trunk_bridge(struct bla_trunk *self)
 	}
 
 	return self->_bridge;
+}
+
+void bla_trunk_anticipate_station(struct bla_trunk *self)
+{
+	/* Prepare the lock before waiting for a station (to prevent race
+	 * conditions) */
+	ast_mutex_lock(&self->_lock);
+}
+
+int bla_trunk_wait_for_station(struct bla_trunk *self)
+{
+	/* TODO: Implement trunk call timeouts */
+	/* TODO: Assert the mutex is already locked */
+	/* Wait for the station to signal us */
+	ast_cond_wait(&self->_cond, &self->_lock);
+	ast_mutex_unlock(&self->_lock);
+
+	return 0;
+}
+
+void bla_trunk_station_responding(
+	struct bla_trunk *self,
+	struct bla_station *station)
+{
+	/* Signal condition to unblock waiting thread */
+	ast_mutex_lock(&self->_lock);
+	ast_cond_signal(&self->_cond);
+	ast_mutex_unlock(&self->_lock);
 }
 
 int bla_trunk_hash(void *arg, int flags)

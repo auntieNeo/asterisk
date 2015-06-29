@@ -522,9 +522,36 @@ int bla_station_is_timeout(
 	return 0;
 }
 
-static void *bla_station_answer_trunk_thread(void *args)
+struct bla_station_answer_trunk_args {
+	struct bla_station *station;
+	struct bla_trunk *trunk;
+	ast_cond_t cond;
+	ast_mutex_t lock;
+};
+static void *bla_station_answer_trunk_thread(
+	struct bla_station_answer_trunk_args *args)
 {
-	ast_log(LOG_NOTICE, "Inside answer trunk thread");
+	ast_log(LOG_NOTICE, "Entering thread for BLA station '%s' answering BLA trunk '%s'",
+		bla_station_name(args->station),
+		bla_trunk_name(args->trunk));
+
+	/* TODO: Answer the trunk's channel */
+	ast_answer(bla_trunk_channel(args->trunk));
+
+	ast_log(LOG_NOTICE, "About to notify BLA trunk '%s' thread from BLA station '%s'",
+		bla_trunk_name(args->trunk),
+		bla_station_name(args->station));
+
+	/* TODO: Notify the trunk thread that it can join the bridge */
+	bla_trunk_station_responding(args->trunk, args->station);
+
+	ast_log(LOG_NOTICE, "Just notified BLA trunk '%s' thread from BLA station '%s'",
+		bla_trunk_name(args->trunk),
+		bla_station_name(args->station));
+
+	/* TODO: Stop the ringing for stations that no longer have any ringing trunks */
+
+	/* TODO: Join the station to the trunk's bridge */
 
 	return NULL;
 }
@@ -538,10 +565,6 @@ int bla_station_answer_trunk(
 	/* TODO: Create a thread to answer the trunk */
 	ast_pthread_create_detached_background(
 		&thread, NULL, (void *(*)(void*))bla_station_answer_trunk_thread, NULL);
-
-	/* TODO: Answer the trunk's channel */
-	/* TODO: Notify the trunk thread that it can join the bridge */
-	/* TODO: Stop the ringing for stations that no longer have any ringing trunks */
 
 	return 0;
 }
