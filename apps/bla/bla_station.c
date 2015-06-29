@@ -377,7 +377,26 @@ int bla_station_handle_dial_state_event(
 	struct ast_dial *dial,
 	struct timeval timestamp)
 {
+	enum ast_dial_result dial_result;
+
 	/* TODO: Decide what to do given the current dial state */
+	dial_result = ast_dial_state(dial);
+	ast_log(LOG_NOTICE, "BLA station '%s' is has dial state '%d'",
+		bla_station_name(self), dial_result);
+	switch (dial_result) {
+		case AST_DIAL_RESULT_ANSWERED:
+			{
+				struct ast_channel *station_chan;
+				/* Get the channel that answered */
+				station_chan = ast_dial_answered(dial);
+				/* TODO: Set the station's channel */
+				/* TODO: Answer the trunk's channel */
+				/* TODO: Make a thread in which the station can join the bridge */
+				/* TODO: Notify the trunk thread that it can join the bridge */
+			}
+			break;
+	}
+
 	return -1;
 }
 
