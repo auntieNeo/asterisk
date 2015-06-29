@@ -391,12 +391,26 @@ int bla_station_handle_dial_state_event(
 				/* Get the channel that answered */
 				station_chan = ast_dial_answered(dial);
 
+				/* Make sure trunk hasn't been answered yet */
+				if (bla_trunk_state(trunk) | BLA_STATE_ANSWERED) {
+					/* More than one station tried to pick
+					 * up at nearly the same time, and this
+					 * station happened to be too late. */
+					/* Drop the call */
+					ast_hangup(station_chan);
+
+					/* TODO: Free the dial object? */
+					return 0;
+				}
+
 				/* TODO: Make sure station's channel is NULL */
 
 				/* TODO: Set the station's channel */
 				bla_station_set_channel(self, station_chan);
 
 				/* TODO: Free the dial object? */
+
+				/* TODO: Stop the ringing for stations that no longer have any ringing trunks */
 
 				/* TODO: Answer the trunk (and bridge the station) */
 				return bla_station_answer_trunk(self, trunk);
@@ -548,6 +562,7 @@ static void *bla_station_answer_trunk_thread(
 		bla_trunk_name(trunk));
 
 	/* TODO: Answer the trunk's channel */
+	/* TODO: Make sure that the trunk channel hasn't already been answered */
 	ast_answer(bla_trunk_channel(trunk));
 
 	ast_log(LOG_NOTICE, "About to notify BLA trunk '%s' thread from BLA station '%s'",
@@ -577,6 +592,10 @@ int bla_station_answer_trunk(
 		.station = self,
 		.trunk = trunk,
 	};
+
+	/* Set the trunk state to "answered" so no other stations try to answer
+	 * this truck */
+	bla_trunk_set_state(trunk, bla_trunk_state(trunk) | BLA_STATE_ANSWERED);
 
 	/* TODO: Create a thread to answer the trunk */
 	ast_mutex_init(&args.lock);

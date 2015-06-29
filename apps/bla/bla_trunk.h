@@ -22,6 +22,7 @@
 /* Forward declarations */
 struct ao2_container;
 struct bla_bridge;
+enum bla_state;
 
 #include "asterisk.h"
 
@@ -33,6 +34,7 @@ struct bla_trunk {
 	struct ao2_container *_station_refs;
 	unsigned int _internal_sample_rate;
 	unsigned int _mixing_interval;
+	unsigned int _state;
 	char _name[AST_MAX_CONTEXT];
 	char _device[AST_MAX_CONTEXT];
 	/* Condition and lock used when waiting for stations */
@@ -159,6 +161,32 @@ static force_inline void bla_trunk_set_mixing_interval(struct bla_trunk *self, u
 {
 	/* TODO: Make it possible to set the mixing interval on the fly? For reloading configuration. */
 	self->_mixing_interval = mixing_interval;
+}
+
+/*!
+ * \brief Accessor for bla_trunk object's state
+ * \param self Pointer to the bla_trunk object
+ * \returns The state of the trunk as a bitfield
+ *
+ * This function return the state of this trunk. The state is a bitfield made
+ * from values in the enum bla_state type.
+ */
+static force_inline unsigned int bla_trunk_state(struct bla_trunk *self)
+{
+	return self->_state;
+}
+
+/*!
+ * \brief Accessor for setting a bla_trunk object's state
+ * \param self Pointer to the bla_trunk object
+ * \param state The state of the trunk to set
+ *
+ * This function sets the state of a trunk. The state is a bitfield made from
+ * values in the enum bla_state type.
+ */
+static force_inline void bla_trunk_set_state(struct bla_trunk *self, unsigned int state)
+{
+	self->_state = state;
 }
 
 /*!

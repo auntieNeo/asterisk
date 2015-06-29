@@ -44,6 +44,8 @@ int bla_trunk_init(struct bla_trunk *self)
 	/* A sample rate of zero tells the bridging API to use a reasonable default */
 	self->_internal_sample_rate = 0;
 
+	self->_state = 0;
+
 	ast_mutex_init(&self->_lock);
 	ast_cond_init(&self->_cond, NULL);
 

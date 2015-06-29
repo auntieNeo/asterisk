@@ -20,6 +20,13 @@
 enum ast_dial_result;
 
 /*!
+ * This enum type describes the state of BLA stations and trunks as bitfields
+ */
+enum bla_state {
+	BLA_STATE_ANSWERED = 0x1,  /*! Our channel has already been answered */
+};
+
+/*!
  * \brief Convert ast_dial_result value to a string
  * \param dial_result The ast_dial_result enum value to convert
  * \returns String representation of the dial result
