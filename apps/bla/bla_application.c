@@ -309,7 +309,10 @@ int bla_application_exec_trunk(
 		bla_trunk_name(trunk));
 /*	ast_safe_sleep(chan, 9000); */
 
-	/* TODO: Join the bridge */
+	/* Join the trunk to the bridge */
+  /* FIXME: Make sure there aren't race conditions between here and when the
+   * trunk joins the bridge */
+	bla_bridge_join_trunk(bla_trunk_bridge(trunk), trunk);
 
 	/* TODO: Clean up */
 	/* TODO: Disassociate the trunk with the incoming channel */

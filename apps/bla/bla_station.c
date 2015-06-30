@@ -581,7 +581,12 @@ static void *bla_station_answer_trunk_thread(
 
 	/* TODO: Stop the ringing for stations that no longer have any ringing trunks */
 
-	/* TODO: Join the station to the trunk's bridge */
+	/* Join the station to the trunk's bridge */
+  /* FIXME: Make sure there aren't race conditions between here and when the
+   * trunk joins the bridge */
+	bla_bridge_join_station(bla_trunk_bridge(trunk), station);
+
+  /* TODO: Clean up */
 
 	return NULL;
 }
