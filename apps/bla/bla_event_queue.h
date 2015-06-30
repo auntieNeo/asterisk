@@ -27,8 +27,10 @@ struct bla_event_queue_thread_args;
 
 struct bla_event_queue {
 	pthread_t _thread;
-	struct bla_event_queue_thread_args *_thread_args;
 	AST_LIST_HEAD_NOLOCK(, bla_event) _events;
+	ast_cond_t _cond;
+	ast_mutex_t _lock;
+  int _stop;
 };
 
 /*!
