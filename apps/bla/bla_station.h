@@ -305,6 +305,8 @@ int bla_station_is_cooldown(struct bla_station *self);
 
 int bla_station_is_timeout(struct bla_station *self, struct bla_trunk *trunk);
 
+void bla_station_stop_ringing(struct bla_station *self);
+
 int bla_station_hash(void *arg, int flags);
 
 /*!

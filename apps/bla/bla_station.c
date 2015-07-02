@@ -379,6 +379,15 @@ int bla_station_handle_dial_state_event(
 {
 	enum ast_dial_result dial_result;
 
+	/* Check for (unlikely) stale dial state events, which could happen
+	 * after we have hung up. Most likely the pointers are not the same
+	 * between dial events. */
+	if (self->_dial != dial) {
+		ast_log(LOG_NOTICE, "BLA station '%s' encountered stale dial state event; ignoring",
+			bla_station_name(self));
+		return 0;
+	}
+
 	/* TODO: Decide what to do given the current dial state */
 	dial_result = ast_dial_state(dial);
 	ast_log(LOG_NOTICE, "BLA station '%s' has dial state '%s'",
@@ -411,9 +420,9 @@ int bla_station_handle_dial_state_event(
 				/* TODO: Set the station's channel */
 				bla_station_set_channel(self, station_chan);
 
-				/* TODO: Free the dial object? */
-
-				/* TODO: Stop the ringing for stations that no longer have any ringing trunks */
+				/* Destroy the dial structure now that we don't
+				 * need it */
+				bla_station_stop_ringing(self);
 
 				/* TODO: Answer the trunk (and bridge the station) */
 				return bla_station_answer_trunk(self, trunk);
@@ -422,12 +431,11 @@ int bla_station_handle_dial_state_event(
 		case AST_DIAL_RESULT_INVALID:
 		case AST_DIAL_RESULT_FAILED:
 		case AST_DIAL_RESULT_TIMEOUT:
+			/* TODO: Dial timeouts are a special case */
+			/* TODO: Set appropriate timestamps for calculating cooldown and timeouts */
 		case AST_DIAL_RESULT_HANGUP:
 		case AST_DIAL_RESULT_UNANSWERED:
-			/* TODO: Stop dialing here? I think it might stop automatically. */
-			/* TODO: Free the dial object? */
-			/* TODO: Mark the station as not ringing */
-			/* TODO: Set appropriate timestamps for calculating cooldown and timeouts */
+			bla_station_stop_ringing(self);
 			break;
 		case AST_DIAL_RESULT_TRYING:
 		case AST_DIAL_RESULT_RINGING:
@@ -537,6 +545,17 @@ int bla_station_is_timeout(
 {
 	/* TODO */
 	return 0;
+}
+
+void bla_station_stop_ringing(struct bla_station *self)
+{
+	ast_dial_join(self->_dial);
+	ast_dial_destroy(self->_dial);
+	self->_dial = NULL;
+
+	/* At this point we should worry about old dial state events in the
+	 * event queue. The bla_station_handle_dial_state_event() function
+	 * checks for this situation. */
 }
 
 struct bla_station_answer_trunk_args {
