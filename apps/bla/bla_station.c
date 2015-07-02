@@ -400,6 +400,9 @@ int bla_station_handle_dial_state_event(
 				/* Get the channel that answered */
 				station_chan = ast_dial_answered(dial);
 
+				/* Free the dial structure */
+				bla_station_stop_ringing(self);
+
 				/* Make sure trunk hasn't been answered yet */
 				if (bla_trunk_state(trunk) & BLA_STATE_ANSWERED) {
 					/* More than one station tried to pick
@@ -411,7 +414,6 @@ int bla_station_handle_dial_state_event(
 					/* Drop the call */
 					ast_hangup(station_chan);
 
-					/* TODO: Free the dial object? */
 					return 0;
 				}
 
@@ -419,10 +421,6 @@ int bla_station_handle_dial_state_event(
 
 				/* TODO: Set the station's channel */
 				bla_station_set_channel(self, station_chan);
-
-				/* Destroy the dial structure now that we don't
-				 * need it */
-				bla_station_stop_ringing(self);
 
 				/* TODO: Answer the trunk (and bridge the station) */
 				return bla_station_answer_trunk(self, trunk);
@@ -567,6 +565,7 @@ struct bla_station_answer_trunk_args {
 static void *bla_station_answer_trunk_thread(
 	struct bla_station_answer_trunk_args *args)
 {
+	RAII_VAR(struct bla_application *, app, bla_application_singleton(), ao2_cleanup);
 	struct bla_station *station;
 	struct bla_trunk *trunk;
 
@@ -599,6 +598,8 @@ static void *bla_station_answer_trunk_thread(
 		bla_station_name(station));
 
 	/* TODO: Stop the ringing for stations that no longer have any ringing trunks */
+	bla_event_queue_process_ringing_stations(
+		bla_application_event_queue(app));
 
 	/* Join the station to the trunk's bridge */
   /* FIXME: Make sure there aren't race conditions between here and when the

@@ -391,3 +391,15 @@ struct bla_trunk *bla_application_find_trunk(
 {
 	return ao2_find(self->_trunks, trunk_name, OBJ_SEARCH_KEY);
 }
+
+int bla_application_handle_process_ringing_stations_event(
+	struct bla_application *self)
+{
+	/* TODO: Iterate through all of the stations */
+		/* TODO: If a station has a non-NULL dial handle... */
+			/* TODO: Iterate through all incoming trunks referenced by the dial handle... */
+				/* TODO: Remove stale trunks (e.g. trunks that already answered, trunks that timed out) */
+			/* TODO: If the station has no trunks at this point... */
+				/* TODO: Destroy the station's dial handle */
+	return 0;
+}

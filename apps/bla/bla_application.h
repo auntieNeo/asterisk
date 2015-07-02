@@ -234,4 +234,7 @@ static force_inline struct bla_event_queue *bla_application_event_queue(
 	return self->_event_queue;
 }
 
+int bla_application_handle_process_ringing_stations_event(
+	struct bla_application *self);
+
 #endif

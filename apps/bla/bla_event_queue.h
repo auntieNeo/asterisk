@@ -153,4 +153,14 @@ int bla_event_queue_station_dial_state(
 	struct bla_trunk *trunk,
 	struct ast_dial *dial);
 
+/*!
+ * \brief Schedule an event to (re-)process which stations should be ringing
+ * \param self Pointer to the bla_event_queue object
+ *
+ * This function schedules an event to (re-)process the ringing BLA stations.
+ * This is necessary to determine which stations need to stop ringing e.g. when
+ * all trunks have already answered.
+ */
+int bla_event_queue_process_ringing_stations(struct bla_event_queue *self);
+
 #endif

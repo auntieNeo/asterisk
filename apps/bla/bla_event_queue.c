@@ -193,3 +193,23 @@ int bla_event_queue_station_dial_state(
 
 	return 0;
 }
+
+int bla_event_queue_process_ringing_stations(
+	struct bla_event_queue *self)
+{
+	struct bla_event *event;
+	/* NOTE: No data for this event */
+
+	ast_log(LOG_NOTICE, "Creating process ringing stations event for BLA");
+
+	event = bla_event_alloc();  /* FIXME: Make sure someone handles the bla_event reference */
+	if ((event == NULL) || bla_event_init(event, BLA_PROCESS_RINGING_STATIONS_EVENT, NULL, ast_tvnow())) {
+		ast_log(LOG_ERROR, "Failed to create process ringing stations event for BLA");
+		return -1;
+	}
+
+	/* Queue up this event */
+	bla_event_queue_enqueue(self, event);
+
+	return 0;
+}

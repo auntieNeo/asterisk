@@ -16,6 +16,7 @@
  * at the top of the source tree.
  */
 
+#include "bla_application.h"
 #include "bla_station.h"
 #include "bla_trunk.h"
 
@@ -50,6 +51,12 @@ int bla_event_init(
 				dest->dial = src->dial;
 			}
 			break;
+		case BLA_PROCESS_RINGING_STATIONS_EVENT:
+			{
+				/* No event data (uses bla_application
+				 * singleton) */
+			}
+			break;
 		default:
 			ast_log(LOG_ERROR, "Unknown BLA event type '%d'",
 				type);
@@ -75,6 +82,7 @@ const char *bla_event_type_as_string(struct bla_event *self)
 #define BLA_EVENT_STRING(type) _BLA_EVENT_STRING( BLA_ ## type ## _EVENT )
 		BLA_EVENT_STRING(RING_STATION)
 		BLA_EVENT_STRING(STATION_DIAL_STATE)
+		BLA_EVENT_STRING(PROCESS_RINGING_STATIONS)
 	}
 
 	ast_log(LOG_ERROR, "No string for event type '%d'",
@@ -116,6 +124,12 @@ int bla_event_dispatch(struct bla_event *self)
 					event->trunk,
 					event->dial,
 					self->_timestamp);
+			}
+		case BLA_PROCESS_RINGING_STATIONS_EVENT:
+			{
+				RAII_VAR(struct bla_application *, app, bla_application_singleton(), ao2_cleanup);
+
+				return bla_application_handle_process_ringing_stations_event(app);
 			}
 	}
 
