@@ -96,7 +96,9 @@ int bla_trunk_is_idle(struct bla_trunk *self)
 
 struct bla_bridge *bla_trunk_bridge(struct bla_trunk *self)
 {
-	/* FIXME: Probably need to lock the bla_trunk object here? */
+	/* Lock the bla_trunk object while creating the bridge, since this
+	 * is a resource contended by trunk and station threads */
+	ao2_lock(self);
 
 	if (self->_bridge == NULL) {
 		/* Initialize the bridge object */
@@ -106,6 +108,8 @@ struct bla_bridge *bla_trunk_bridge(struct bla_trunk *self)
 		bla_bridge_set_internal_sample_rate(self->_bridge, bla_trunk_internal_sample_rate(self));
 		bla_bridge_set_mixing_interval(self->_bridge, bla_trunk_mixing_interval(self));
 	}
+
+	ao2_unlock(self);
 
 	return self->_bridge;
 }

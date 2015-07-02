@@ -310,8 +310,8 @@ int bla_application_exec_trunk(
 /*	ast_safe_sleep(chan, 9000); */
 
 	/* Join the trunk to the bridge */
-  /* FIXME: Make sure there aren't race conditions between here and when the
-   * trunk joins the bridge */
+	/* FIXME: Make sure there aren't race conditions between here and when
+	 * the trunk joins the bridge */
 	bla_bridge_join_trunk(bla_trunk_bridge(trunk), trunk);
 
 	/* TODO: Clean up */
