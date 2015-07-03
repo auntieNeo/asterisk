@@ -237,4 +237,25 @@ static force_inline struct bla_event_queue *bla_application_event_queue(
 int bla_application_handle_process_ringing_stations_event(
 	struct bla_application *self);
 
+/*!
+ * \brief Find the trunk in a station
+ * \param self Pointer to the bla_application object
+ * \param station Pointer to the bla_station to look through
+ * \param trunk_name Name of the trunk to look for
+ * \retval Pointer to trunk with that name if found
+ * \retval NULL on failure to find trunk
+ *
+ * This function finds the trunk with the given trunk_name inside of a station.
+ * It makes sure that the trunk is declared in that station. This function adds
+ * a reference count to the trunk object returned.
+ *
+ * If the function can't find the trunk in the station or in application, NULL
+ * is returned.
+ */
+struct bla_trunk *bla_application_find_station_trunk(
+	struct bla_application *self,
+	struct bla_station *station,
+	const char *trunk_name);
+
+
 #endif

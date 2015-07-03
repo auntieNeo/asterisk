@@ -210,6 +210,7 @@ int bla_application_exec_station(
 		station_name);
 
 	/* Look for the station; make sure it exists */
+	/* FIXME: Deal with station reference in a cleanup routine */
 	station = bla_application_find_station(self, station_name);
 	if (station == NULL) {
 		ast_log(LOG_ERROR,
@@ -220,6 +221,7 @@ int bla_application_exec_station(
 	}
 
 	/* Check if the trunk name is empty */
+	/* FIXME: Deal with trunk reference in a cleanup routine */
 	if ((trunk_name == NULL) || ast_strlen_zero(trunk_name)) {
 		/* Look for an idle trunk */
 		trunk = bla_station_find_idle_trunk(station, self);
@@ -235,12 +237,17 @@ int bla_application_exec_station(
 			"Found idle trunk '%s' for station '%s' in BLAStation()",
 			bla_trunk_name(trunk), bla_station_name(station));
 	} else {
-		/* TODO: If the trunk name is not empty, make sure it exists and is available */
-			/* TODO: If the trunk is on hold by us, take it off hold */
-			/* TODO: If the trunk is not idle, make sure it has the barge option set */
-		ast_log(LOG_ERROR, "FIXME: specific trunk connection hasn't been implemented for BLA");
-		pbx_builtin_setvar_helper(chan, "BLA_RESULT", "FAILED");
-		return -1;
+		/* TODO: The trunk name is not empty; make sure it exists and
+		 * is available */
+		trunk = bla_application_find_station_trunk(self, station, trunk_name);
+		if (trunk == NULL) {
+			ast_log(LOG_ERROR, "Error executing BLAStation(): trunk '%s' not found in station '%s'",
+				trunk_name, bla_station_name(station));
+			pbx_builtin_setvar_helper(chan, "BLA_RESULT", "FAILED");
+			return -1;
+		}
+		/* TODO: If the trunk is on hold by us, take it off hold */
+		/* TODO: If the trunk is not idle, make sure it has the barge option set */
 	}
 
 	/* TODO: Decide what to do with the station "off the hook" */
@@ -402,4 +409,25 @@ int bla_application_handle_process_ringing_stations_event(
 			/* TODO: If the station has no trunks at this point... */
 				/* TODO: Destroy the station's dial handle */
 	return 0;
+}
+
+struct bla_trunk *bla_application_find_station_trunk(
+	struct bla_application *self,
+	struct bla_station *station,
+	const char *trunk_name)
+{
+	struct bla_trunk_ref *trunk_ref;
+	struct bla_trunk *trunk;
+
+	/* Make sure the trunk is declared in the station */
+	trunk_ref = bla_station_find_trunk_ref(station, trunk_name);
+	if (trunk_ref == NULL) {
+		return NULL;
+	}
+
+	/* Find the trunk */
+	trunk = bla_trunk_ref_resolve(trunk_ref, self);
+
+	ao2_ref(trunk_ref, -1);
+	return trunk;
 }
